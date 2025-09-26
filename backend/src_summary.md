@@ -4,11 +4,12 @@
 ```js
 import express from "express";
 import routes from "./routes/index.js";
+import { apiLimiter } from "./middlewares/rateLimiter.js";
 
 const app = express();
 app.use(express.json());
 
-app.use("/api", routes);
+app.use("/api", apiLimiter, routes);
 
 export default app;
 
@@ -31,6 +32,24 @@ export async function connectDb() {
         process.exit(1);
     }
 }
+
+```
+
+## File: config/redis.js
+```js
+import { createClient } from "redis";
+
+const client = createClient({
+    url: process.env.REDIS_URL,
+});
+
+client.on("error", (err) => {
+    console.error("Redis Client Error", err);
+});
+
+await client.connect();
+
+export default client;
 
 ```
 
@@ -290,6 +309,25 @@ export function authorizeRoles(...allowedRoles) {
         next();
     };
 }
+
+```
+
+## File: middlewares/rateLimiter.js
+```js
+import rateLimit from "express-rate-limit";
+import RedisStore from "rate-limit-redis";
+import redisClient from "../config/redis.js";
+
+export const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 2,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { msg: "Too many requests, try again later." },
+    store: new RedisStore({
+        sendCommand: (...args) => redisClient.sendCommand(args),
+    }),
+});
 
 ```
 
