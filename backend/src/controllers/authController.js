@@ -27,21 +27,21 @@ export async function register(req, res) {
         }
         const newUser = await createUser(username, password, role);
         const accessToken = generateAccessToken({
-            id: newUser._id,
+            id: newUser.id,
             username: newUser.username,
             role: newUser.role,
         });
         const refreshToken = generateRefreshToken({
-            id: newUser._id,
+            id: newUser.id,
             username: newUser.username,
             role: newUser.role,
         });
-        await addRefreshToken(refreshToken, newUser._id);
+        await addRefreshToken(refreshToken, newUser.id);
         res.status(201).json({
             accessToken,
             refreshToken,
             user: {
-                id: newUser._id,
+                id: newUser.id,
                 username: newUser.username,
                 role: newUser.role,
             },
@@ -59,19 +59,19 @@ export async function login(req, res) {
             return res.status(400).json({ msg: "Invalid credentials" });
         }
         const accessToken = generateAccessToken({
-            id: user._id,
+            id: user.id,
             username: user.username,
             role: user.role,
         });
         const refreshToken = generateRefreshToken({
-            id: user._id,
+            id: user.id,
             username: user.username,
             role: user.role,
         });
-        await addRefreshToken(refreshToken, user._id);
+        await addRefreshToken(refreshToken, user.id);
         res.json({
             user: {
-                id: user._id,
+                id: user.id,
                 username: user.username,
                 role: user.role,
             },
@@ -102,14 +102,14 @@ export async function refreshToken(req, res) {
             return res.status(403).json({ msg: "User not found" });
         }
         const payload = {
-            id: user._id,
+            id: user.id,
             username: user.username,
             role: user.role,
         };
         const newAccessToken = generateAccessToken(payload);
         const newRefreshToken = generateRefreshToken(payload);
         await removeRefreshToken(refreshToken);
-        await addRefreshToken(newRefreshToken, user._id);
+        await addRefreshToken(newRefreshToken, user.id);
         res.json({
             accessToken: newAccessToken,
             refreshToken: newRefreshToken,

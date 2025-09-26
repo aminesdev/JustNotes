@@ -1,22 +1,34 @@
-import User from "../models/User.js";
+import prisma from "../config/database.js";
 import { hashPassword, comparePassword } from "../utils/hash.js";
 
 export async function findUserByUsername(username) {
-    return await User.findOne({ username });
+    return await prisma.user.findUnique({
+        where: { username },
+    });
 }
 
 export async function createUser(username, password, role) {
-    const user = new User({ username, password, role });
-    return await user.save();
+    const hashedPassword = await hashPassword(password);
+
+    return await prisma.user.create({
+        data: {
+            username,
+            password: hashedPassword,
+            role: role.toUpperCase(), 
+        },
+    });
 }
 
 export async function verifyUserCredentials(username, password) {
-    const user = await User.findOne({ username });
+    const user = await findUserByUsername(username);
     if (!user) return null;
-    const isMatch = await user.comparePassword(password);
+
+    const isMatch = await comparePassword(password, user.password);
     return isMatch ? user : null;
 }
 
 export async function findUserById(id) {
-    return await User.findById(id);
+    return await prisma.user.findUnique({
+        where: { id },
+    });
 }

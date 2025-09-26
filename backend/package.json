@@ -6,17 +6,25 @@
     "scripts": {
         "start": "node src/server.js",
         "dev": "nodemon src/server.js",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "db:generate": "prisma generate",
+        "db:push": "prisma db push",
+        "db:studio": "prisma studio",
+        "db:migrate": "prisma migrate dev --name init"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@prisma/client": "^6.16.2",
         "bcrypt": "^6.0.0",
         "dotenv": "^17.2.2",
         "express": "^5.1.0",
+        "express-rate-limit": "^8.1.0",
+        "ioredis": "^5.8.0",
         "jsonwebtoken": "^9.0.2",
-        "mongoose": "^8.18.1",
+        "prisma": "^6.16.2",
+        "rate-limit-redis": "^4.2.2",
         "swagger-jsdoc": "^6.2.8",
         "swagger-ui-express": "^5.0.0"
     },

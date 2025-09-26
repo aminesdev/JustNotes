@@ -1,28 +1,41 @@
-import RefreshToken from "../models/RefreshToken.js";
+import prisma from "../config/database.js";
 import jwt from "jsonwebtoken";
 
 export async function addRefreshToken(token, userId) {
     const decoded = jwt.decode(token);
     const expiresAt = new Date(decoded.exp * 1000);
 
-    const refreshToken = new RefreshToken({
-        token,
-        userId,
-        expiresAt,
+    return await prisma.refreshToken.create({
+        data: {
+            token,
+            userId,
+            expiresAt,
+        },
     });
-
-    return await refreshToken.save();
 }
 
 export async function removeRefreshToken(token) {
-    return await RefreshToken.findOneAndDelete({ token });
+    const tokenRecord = await prisma.refreshToken.findFirst({
+        where: { token },
+    });
+
+    if (tokenRecord) {
+        return await prisma.refreshToken.delete({
+            where: { id: tokenRecord.id },
+        });
+    }
+    return null;
 }
 
 export async function isValidRefreshToken(token) {
-    const foundToken = await RefreshToken.findOne({ token });
+    const foundToken = await prisma.refreshToken.findFirst({
+        where: { token },
+    });
     return !!foundToken;
 }
 
 export async function clearUserRefreshTokens(userId) {
-    return await RefreshToken.deleteMany({ userId });
+    return await prisma.refreshToken.deleteMany({
+        where: { userId },
+    });
 }
