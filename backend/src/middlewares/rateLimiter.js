@@ -4,7 +4,7 @@ import redisClient from "../config/redis.js";
 
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 2,
+    max: 20,
     standardHeaders: true,
     legacyHeaders: false,
     message: { msg: "Too many requests, try again later." },

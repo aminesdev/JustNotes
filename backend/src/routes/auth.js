@@ -5,12 +5,17 @@ import {
     refreshToken,
     logout,
 } from "../controllers/authController.js";
+import {
+    validateRegister,
+    validateLogin,
+    validateRefreshToken,
+} from "../middlewares/validation.js";
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
-router.post("/refresh", refreshToken);
+router.post("/register", validateRegister, register);
+router.post("/login", validateLogin, login);
+router.post("/refresh", validateRefreshToken, refreshToken);
 router.post("/logout", logout);
 
 export default router;
