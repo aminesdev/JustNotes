@@ -7,7 +7,6 @@ export async function findUserByEmail(email) {
         where: { email },
     });
 }
-
 export async function createUser(email, password, role) {
     const hashedPassword = await hashPassword(password);
     const verificationToken = generateVerificationToken();
