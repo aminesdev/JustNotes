@@ -124,3 +124,8 @@ export const validateNoteId = [
 
     handleValidationErrors,
 ];
+
+export const validateEmail = [
+    body("email").isEmail().withMessage("Valid email is required"),
+    handleValidationErrors,
+];

@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 export function generateAccessToken(payload) {
     return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -23,3 +24,11 @@ export function verifyRefreshToken(token) {
         return null;
     }
 }
+
+export const generateVerificationToken = () => {
+    return crypto.randomBytes(32).toString("hex");
+};
+
+export const generatePasswordResetToken = () => {
+    return crypto.randomBytes(32).toString("hex");
+};
