@@ -6,6 +6,33 @@ const router = express.Router();
 
 router.use(authenticate);
 
+/**
+ * @swagger
+ * /api/categories:
+ *   get:
+ *     summary: Get all user categories
+ *     tags: [Categories]
+ *     responses:
+ *       200:
+ *         description: Categories retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Category'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/", async (req, res) => {
     try {
         const categories = await categoryService.getUserCategories(req.user.id);
@@ -15,6 +42,51 @@ router.get("/", async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /api/categories:
+ *   post:
+ *     summary: Create a new category
+ *     tags: [Categories]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Work"
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Work-related notes and tasks"
+ *               color:
+ *                 type: string
+ *                 default: "#6B73FF"
+ *                 example: "#FF5733"
+ *     responses:
+ *       201:
+ *         description: Category created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Category'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post("/", async (req, res) => {
     try {
         const category = await categoryService.createCategory(
@@ -31,6 +103,45 @@ router.post("/", async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /api/categories/{id}:
+ *   get:
+ *     summary: Get category by ID
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     responses:
+ *       200:
+ *         description: Category retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       allOf:
+ *                         - $ref: '#/components/schemas/Category'
+ *                         - type: object
+ *                           properties:
+ *                             notes:
+ *                               type: array
+ *                               items:
+ *                                 $ref: '#/components/schemas/Note'
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/:id", async (req, res) => {
     try {
         const category = await categoryService.getCategoryById(
@@ -48,6 +159,55 @@ router.get("/:id", async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /api/categories/{id}:
+ *   put:
+ *     summary: Update category by ID
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Updated Work"
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Updated work-related notes"
+ *               color:
+ *                 type: string
+ *                 example: "#33FF57"
+ *     responses:
+ *       200:
+ *         description: Category updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Category'
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.put("/:id", async (req, res) => {
     try {
         const category = await categoryService.updateCategory(
@@ -70,6 +230,33 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+* /api/categories/{id}:
+ *   delete:
+ *     summary: Delete category by ID
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     responses:
+ *       200:
+ *         description: Category deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+*/
 router.delete("/:id", async (req, res) => {
     try {
         const category = await categoryService.deleteCategory(

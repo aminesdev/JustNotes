@@ -24,8 +24,8 @@ import {
     generateVerificationToken,
     generatePasswordResetToken,
 } from "../utils/generateToken.js";
-import { sendPasswordResetEmail } from "../utils/emailService.js";
-import { sendVerificationEmail } from "../utils/emailService.js";
+import { sendPasswordResetEmail } from "../services/emailService.js";
+import { sendVerificationEmail } from "../services/emailService.js";
 
 
 export async function register(req, res) {

@@ -17,6 +17,7 @@
     "license": "ISC",
     "dependencies": {
         "@prisma/client": "^6.16.2",
+        "@upstash/redis": "^1.35.4",
         "bcrypt": "^6.0.0",
         "dotenv": "^17.2.2",
         "express": "^5.1.0",
@@ -28,6 +29,7 @@
         "prisma": "^6.16.2",
         "rate-limit-redis": "^4.2.2",
         "redis": "^5.8.2",
+        "resend": "^6.1.0",
         "swagger-jsdoc": "^6.2.8",
         "swagger-ui-express": "^5.0.0"
     },
