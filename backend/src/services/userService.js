@@ -1,26 +1,28 @@
 import prisma from "../config/database.js";
 import { hashPassword, comparePassword } from "../utils/hash.js";
 
-export async function findUserByUsername(username) {
+export async function findUserByEmail(email) {
     return await prisma.user.findUnique({
-        where: { username },
+        where: { email },
     });
 }
 
-export async function createUser(username, password, role) {
+
+export async function createUser(email, password, role) {
     const hashedPassword = await hashPassword(password);
 
     return await prisma.user.create({
         data: {
-            username,
+            email,
             password: hashedPassword,
-            role: role.toUpperCase(), 
+            role: role.toUpperCase(),
         },
     });
 }
 
-export async function verifyUserCredentials(username, password) {
-    const user = await findUserByUsername(username);
+
+export async function verifyUserCredentials(email, password) {
+    const user = await findUserByEmail(email);
     if (!user) return null;
 
     const isMatch = await comparePassword(password, user.password);

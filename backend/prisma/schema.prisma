@@ -3,35 +3,59 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
-
+        
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  role      UserRole @default(USER)
-  createdAt DateTime @default(now())
-  notes     Note[]
-  refreshTokens RefreshToken[]
+  id                String        @id @default(cuid())
+  email             String        @unique
+  password          String
+  role              UserRole      @default(USER)
+  isVerified        Boolean       @default(false)
+  verificationToken String?       
+  createdAt         DateTime      @default(now())
+  notes             Note[]
+  categories        Category[]
+  refreshTokens     RefreshToken[]
 
   @@map("users")
 }
 
-model Note {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  category  String   @default("general")
-  isPinned  Boolean  @default(false)
-  tags      String[]
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?  @default("#6B73FF")
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes       Note[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, name]) // Ensure unique category names per user
+  @@map("categories")
+}
+
+model Note {
+  id         String    @id @default(cuid())
+  title      String
+  content    String
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isPinned   Boolean   @default(false)
+  tags       String[]
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, categoryId])
+  @@index([userId, isPinned])
+  @@index([userId, createdAt])
   @@map("notes")
 }
 

@@ -1,16 +1,19 @@
 import prisma from "../config/database.js";
 
 export const createNote = async (userId, data) => {
-    const { title, content, category, tags, isPinned } = data;
+    const { title, content, categoryId, tags, isPinned } = data;
 
     return await prisma.note.create({
         data: {
             title,
             content,
-            category: category || "general",
+            categoryId: categoryId || null,
             tags: tags || [],
             isPinned: isPinned || false,
             userId,
+        },
+        include: {
+            category: true,
         },
     });
 };
@@ -18,6 +21,9 @@ export const createNote = async (userId, data) => {
 export const getNotes = async (userId) => {
     return await prisma.note.findMany({
         where: { userId },
+        include: {
+            category: true,
+        },
         orderBy: { createdAt: "desc" },
     });
 };
@@ -27,6 +33,9 @@ export const getNoteById = async (userId, noteId) => {
         where: {
             id: noteId,
             userId,
+        },
+        include: {
+            category: true,
         },
     });
 };
@@ -38,6 +47,9 @@ export const updateNote = async (userId, noteId, updateData) => {
             userId,
         },
         data: updateData,
+        include: {
+            category: true,
+        },
     });
 };
 

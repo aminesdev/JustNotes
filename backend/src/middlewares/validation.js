@@ -1,6 +1,5 @@
 import { body, param, validationResult } from "express-validator";
 
-// Middleware to handle validation errors
 export const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -13,16 +12,11 @@ export const handleValidationErrors = (req, res, next) => {
     next();
 };
 
-// Auth validation rules
 export const validateRegister = [
-    body("username")
-        .trim()
-        .isLength({ min: 3, max: 30 })
-        .withMessage("Username must be between 3 and 30 characters")
-        .matches(/^[a-zA-Z0-9_]+$/)
-        .withMessage(
-            "Username can only contain letters, numbers, and underscores"
-        ),
+    body("email")
+        .isEmail()
+        .normalizeEmail()
+        .withMessage("Valid email is required"),
 
     body("password")
         .isLength({ min: 6 })
@@ -42,7 +36,7 @@ export const validateRegister = [
 ];
 
 export const validateLogin = [
-    body("username").trim().notEmpty().withMessage("Username is required"),
+    body("email").isEmail().withMessage("Valid email is required"),
 
     body("password").notEmpty().withMessage("Password is required"),
 
@@ -55,7 +49,6 @@ export const validateRefreshToken = [
     handleValidationErrors,
 ];
 
-// Note validation rules
 export const validateCreateNote = [
     body("title")
         .trim()
@@ -69,11 +62,10 @@ export const validateCreateNote = [
             "Content is required and must be less than 10,000 characters"
         ),
 
-    body("category")
+    body("categoryId")
         .optional()
-        .trim()
-        .isLength({ max: 50 })
-        .withMessage("Category must be less than 50 characters"),
+        .isString()
+        .withMessage("Category ID must be a string"),
 
     body("tags").optional().isArray().withMessage("Tags must be an array"),
 
@@ -106,11 +98,10 @@ export const validateUpdateNote = [
         .isLength({ min: 1, max: 10000 })
         .withMessage("Content must be between 1 and 10,000 characters"),
 
-    body("category")
+    body("categoryId")
         .optional()
-        .trim()
-        .isLength({ max: 50 })
-        .withMessage("Category must be less than 50 characters"),
+        .isString()
+        .withMessage("Category ID must be a string"),
 
     body("tags").optional().isArray().withMessage("Tags must be an array"),
 

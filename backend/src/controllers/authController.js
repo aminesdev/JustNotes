@@ -10,76 +10,108 @@ import {
 } from "../services/refreshTokenService.js";
 import {
     createUser,
-    findUserByUsername,
+    findUserByEmail,
     verifyUserCredentials,
     findUserById,
 } from "../services/userService.js";
 
 export async function register(req, res) {
     try {
-        const { username, password, role } = req.body;
-        if (!username || !password || !role) {
-            return res.status(400).json({ msg: "Please provide all fields" });
+        const { email, password, role } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                msg: "Email and password are required",
+            });
         }
-        const existingUser = await findUserByUsername(username);
+
+        const existingUser = await findUserByEmail(email);
         if (existingUser) {
-            return res.status(400).json({ msg: "User already exists" });
+            return res.status(400).json({
+                success: false,
+                msg: "User already exists",
+            });
         }
-        const newUser = await createUser(username, password, role);
+
+        const newUser = await createUser(email, password, role || "USER");
         const accessToken = generateAccessToken({
             id: newUser.id,
-            username: newUser.username,
+            email: newUser.email,
             role: newUser.role,
         });
         const refreshToken = generateRefreshToken({
             id: newUser.id,
-            username: newUser.username,
+            email: newUser.email,
             role: newUser.role,
         });
+
         await addRefreshToken(refreshToken, newUser.id);
+
         res.status(201).json({
-            accessToken,
-            refreshToken,
-            user: {
-                id: newUser.id,
-                username: newUser.username,
-                role: newUser.role,
+            success: true,
+            message: "User registered successfully",
+            data: {
+                accessToken,
+                refreshToken,
+                user: {
+                    id: newUser.id,
+                    email: newUser.email,
+                    role: newUser.role,
+                },
             },
         });
     } catch (error) {
-        res.status(500).json({ msg: "Server error" });
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
     }
 }
 
 export async function login(req, res) {
     try {
-        const { username, password } = req.body;
-        const user = await verifyUserCredentials(username, password);
+        const { email, password } = req.body;
+        const user = await verifyUserCredentials(email, password);
         if (!user) {
-            return res.status(400).json({ msg: "Invalid credentials" });
+            return res.status(400).json({
+                success: false,
+                msg: "Invalid credentials",
+            });
         }
+
         const accessToken = generateAccessToken({
             id: user.id,
-            username: user.username,
+            email: user.email,
             role: user.role,
         });
         const refreshToken = generateRefreshToken({
             id: user.id,
-            username: user.username,
+            email: user.email,
             role: user.role,
         });
+
         await addRefreshToken(refreshToken, user.id);
+
         res.json({
-            user: {
-                id: user.id,
-                username: user.username,
-                role: user.role,
+            success: true,
+            message: "Login successful",
+            data: {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                },
+                accessToken,
+                refreshToken,
             },
-            accessToken,
-            refreshToken,
         });
     } catch (error) {
-        res.status(500).json({ msg: "Server error" });
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
     }
 }
 
@@ -87,35 +119,62 @@ export async function refreshToken(req, res) {
     try {
         const { refreshToken } = req.body;
         if (!refreshToken) {
-            return res.status(401).json({ msg: "Refresh token required" });
+            return res.status(401).json({
+                success: false,
+                msg: "Refresh token required",
+            });
         }
+
         const isValid = await isValidRefreshToken(refreshToken);
         if (!isValid) {
-            return res.status(403).json({ msg: "Invalid refresh token" });
+            return res.status(403).json({
+                success: false,
+                msg: "Invalid refresh token",
+            });
         }
+
         const decoded = verifyRefreshToken(refreshToken);
         if (!decoded) {
-            return res.status(403).json({ msg: "Invalid refresh token" });
+            return res.status(403).json({
+                success: false,
+                msg: "Invalid refresh token",
+            });
         }
+
         const user = await findUserById(decoded.id);
         if (!user) {
-            return res.status(403).json({ msg: "User not found" });
+            return res.status(403).json({
+                success: false,
+                msg: "User not found",
+            });
         }
+
         const payload = {
             id: user.id,
-            username: user.username,
+            email: user.email,
             role: user.role,
         };
+
         const newAccessToken = generateAccessToken(payload);
         const newRefreshToken = generateRefreshToken(payload);
+
         await removeRefreshToken(refreshToken);
         await addRefreshToken(newRefreshToken, user.id);
+
         res.json({
-            accessToken: newAccessToken,
-            refreshToken: newRefreshToken,
+            success: true,
+            message: "Token refreshed successfully",
+            data: {
+                accessToken: newAccessToken,
+                refreshToken: newRefreshToken,
+            },
         });
     } catch (error) {
-        res.status(500).json({ msg: "Server error" });
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
     }
 }
 
@@ -125,8 +184,15 @@ export async function logout(req, res) {
         if (refreshToken) {
             await removeRefreshToken(refreshToken);
         }
-        res.json({ msg: "Logged out successfully" });
+        res.json({
+            success: true,
+            message: "Logged out successfully",
+        });
     } catch (error) {
-        res.status(500).json({ msg: "Server error" });
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
     }
 }
