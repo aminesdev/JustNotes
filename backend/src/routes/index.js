@@ -10,3 +10,4 @@ router.use("/notes", noteRoutes);
 router.use("/categories", categoryRoutes);
 
 export default router;
+
