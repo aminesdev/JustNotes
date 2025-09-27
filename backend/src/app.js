@@ -1,6 +1,6 @@
 import express from "express";
 import routes from "./routes/index.js";
-import { apiLimiter } from "./middlewares/rateLimiter.js";
+import { apiLimiter, authLimiter } from "./middlewares/rateLimiter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { specs, swaggerUi } from "./config/swagger.js";
 
@@ -18,7 +18,7 @@ app.use(
         customSiteTitle: "Note App API Documentation",
     })
 );
-
+app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter, routes);
 app.use(errorHandler);
 
