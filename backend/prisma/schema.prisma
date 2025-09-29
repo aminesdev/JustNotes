@@ -9,24 +9,27 @@ datasource db {
 }
 
 model User {
-  id                String         @id @default(cuid())
-  password          String
-  role              UserRole       @default(USER)
-  createdAt         DateTime       @default(now())
-  email             String         @unique
-  isVerified        Boolean        @default(false)
-  verificationToken String?
-  categories        Category[]
-  notes             Note[]
-  refreshTokens     RefreshToken[]
+  id                     String         @id @default(cuid())
+  password               String
+  role                   UserRole       @default(USER)
+  createdAt              DateTime       @default(now())
+  email                  String         @unique
+  isVerified             Boolean        @default(false)
+  verificationCode       String?        
+  verificationCodeExpiry DateTime?  
+  publicKey              String?        @db.Text
+  encryptedPrivateKey    String?        @db.Text
+  categories             Category[]
+  notes                  Note[]
+  refreshTokens          RefreshToken[]
 
   @@map("users")
 }
 
 model Category {
   id          String   @id @default(cuid())
-  name        String
-  description String?
+  name        String   @db.Text
+  description String?  @db.Text
   color       String?  @default("#6B73FF")
   userId      String
   createdAt   DateTime @default(now())
@@ -34,22 +37,23 @@ model Category {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   notes       Note[]
 
-  @@unique([userId, name])
+  @@index([userId])
   @@map("categories")
 }
 
 model Note {
-  id         String    @id @default(cuid())
-  title      String
-  content    String
-  isPinned   Boolean   @default(false)
-  tags       String[]
-  userId     String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  title         String    @db.Text
+  content       String    @db.Text
+  isPinned      Boolean   @default(false)
+  tags          String[]
+  encryptedKey  String?   @db.Text
+  userId        String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, categoryId])
   @@index([userId, isPinned])

@@ -12,7 +12,16 @@ export function authenticate(req, res, next) {
     }
 
     try {
-        req.user = verifyAccessToken(token);
+        const decoded = verifyAccessToken(token);
+        if (!decoded.isVerified) {
+            return res.status(403).json({
+                success: false,
+                msg: "Please verify your email before accessing this resource",
+                code: "EMAIL_NOT_VERIFIED",
+            });
+        }
+
+        req.user = decoded;
         next();
     } catch (err) {
         if (err.name === "TokenExpiredError") {
@@ -32,15 +41,4 @@ export function authorizeRoles(...allowedRoles) {
         }
         next();
     };
-}
-
-export function requireVerification(req, res, next) {
-    if (!req.user.isVerified) {
-        return res.status(403).json({
-            success: false,
-            msg: "Please verify your email before accessing this resource",
-            code: "EMAIL_NOT_VERIFIED",
-        });
-    }
-    next();
 }

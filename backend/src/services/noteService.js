@@ -1,7 +1,7 @@
 import prisma from "../config/database.js";
 
 export const createNote = async (userId, data) => {
-    const { title, content, categoryId, tags, isPinned } = data;
+    const { title, content, categoryId, tags, isPinned, encryptedKey } = data;
 
     return await prisma.note.create({
         data: {
@@ -10,6 +10,7 @@ export const createNote = async (userId, data) => {
             categoryId: categoryId || null,
             tags: tags || [],
             isPinned: isPinned || false,
+            encryptedKey: encryptedKey || null,
             userId,
         },
         include: {

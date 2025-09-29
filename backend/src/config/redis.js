@@ -1,6 +1,9 @@
 // src/config/redis.js
 import { Redis } from "@upstash/redis";
 
-const client = Redis.fromEnv();
+const redisClient = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-export default client;
+export default redisClient;

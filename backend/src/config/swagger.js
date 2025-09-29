@@ -5,10 +5,10 @@ const options = {
     definition: {
         openapi: "3.0.0",
         info: {
-            title: "Note-Taking API",
+            title: "E2EE Note-Taking API",
             version: "1.0.0",
             description:
-                "A comprehensive note-taking application API with user authentication and categorization",
+                "An end-to-end encrypted note-taking application API. All note content is encrypted on the client side before being sent to the server.",
             contact: {
                 name: "API Support",
                 email: "support@noteapp.com",
@@ -51,6 +51,11 @@ const options = {
                             type: "boolean",
                             description: "Email verification status",
                         },
+                        publicKey: {
+                            type: "string",
+                            nullable: true,
+                            description: "User's public key for E2EE",
+                        },
                         createdAt: {
                             type: "string",
                             format: "date-time",
@@ -67,12 +72,12 @@ const options = {
                         },
                         name: {
                             type: "string",
-                            description: "Category name",
+                            description: "Category name (encrypted)",
                         },
                         description: {
                             type: "string",
                             nullable: true,
-                            description: "Category description",
+                            description: "Category description (encrypted)",
                         },
                         color: {
                             type: "string",
@@ -102,11 +107,11 @@ const options = {
                         },
                         title: {
                             type: "string",
-                            description: "Note title",
+                            description: "Note title (encrypted base64)",
                         },
                         content: {
                             type: "string",
-                            description: "Note content",
+                            description: "Note content (encrypted base64)",
                         },
                         categoryId: {
                             type: "string",
@@ -127,7 +132,13 @@ const options = {
                             items: {
                                 type: "string",
                             },
-                            description: "Note tags",
+                            description: "Note tags (encrypted)",
+                        },
+                        encryptedKey: {
+                            type: "string",
+                            nullable: true,
+                            description:
+                                "Symmetric key encrypted with user's public key",
                         },
                         userId: {
                             type: "string",
@@ -188,7 +199,7 @@ const options = {
             },
         ],
     },
-    apis: ["./src/routes/*.js"], // Path to the API files
+    apis: ["./src/routes/*.js"],
 };
 
 const specs = swaggerJsdoc(options);

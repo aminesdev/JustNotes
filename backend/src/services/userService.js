@@ -1,22 +1,25 @@
 import prisma from "../config/database.js";
 import { hashPassword, comparePassword } from "../utils/hash.js";
-import { generateVerificationToken } from "../utils/generateToken.js";
+import { generateVerificationCode } from "../utils/generateToken.js";
 
 export async function findUserByEmail(email) {
     return await prisma.user.findUnique({
         where: { email },
     });
 }
+
 export async function createUser(email, password, role) {
     const hashedPassword = await hashPassword(password);
-    const verificationToken = generateVerificationToken();
+    const verificationCode = generateVerificationCode();
+    const verificationCodeExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
     return await prisma.user.create({
         data: {
             email,
             password: hashedPassword,
             role: role.toUpperCase(),
-            verificationToken,
+            verificationCode,
+            verificationCodeExpiry,
             isVerified: false,
         },
     });
@@ -36,47 +39,68 @@ export async function findUserById(id) {
     });
 }
 
-export async function verifyUserEmail(token) {
+export async function verifyUserEmail(code) {
     const user = await prisma.user.findFirst({
-        where: { verificationToken: token },
+        where: {
+            verificationCode: code,
+            verificationCodeExpiry: {
+                gte: new Date(),
+            },
+        },
     });
 
     if (!user) {
-        throw new Error("Invalid verification token");
+        throw new Error("Invalid or expired verification code");
     }
 
     return await prisma.user.update({
         where: { id: user.id },
         data: {
             isVerified: true,
-            verificationToken: null,
+            verificationCode: null,
+            verificationCodeExpiry: null,
         },
     });
 }
 
-export async function updateUserVerificationToken(email, token) {
-    return await prisma.user.update({
-        where: { email },
-        data: { verificationToken: token },
-    });
-}
+export async function updateUserVerificationCode(email) {
+    const verificationCode = generateVerificationCode();
+    const verificationCodeExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
-export async function setPasswordResetToken(email, token) {
     return await prisma.user.update({
         where: { email },
         data: {
-            verificationToken: token,
+            verificationCode,
+            verificationCodeExpiry,
         },
     });
 }
 
-export async function resetPassword(token, newPassword) {
+export async function setPasswordResetCode(email) {
+    const resetCode = generateVerificationCode();
+    const resetCodeExpiry = new Date(Date.now() + 15 * 60 * 1000);
+
+    return await prisma.user.update({
+        where: { email },
+        data: {
+            verificationCode: resetCode,
+            verificationCodeExpiry: resetCodeExpiry,
+        },
+    });
+}
+
+export async function resetUserPassword(code, newPassword) {
     const user = await prisma.user.findFirst({
-        where: { verificationToken: token },
+        where: {
+            verificationCode: code,
+            verificationCodeExpiry: {
+                gte: new Date(),
+            },
+        },
     });
 
     if (!user) {
-        throw new Error("Invalid reset token");
+        throw new Error("Invalid or expired reset code");
     }
 
     const hashedPassword = await hashPassword(newPassword);
@@ -85,27 +109,46 @@ export async function resetPassword(token, newPassword) {
         where: { id: user.id },
         data: {
             password: hashedPassword,
-            verificationToken: null,
+            verificationCode: null,
+            verificationCodeExpiry: null,
         },
     });
 }
 
-export async function resetUserPassword(token, newPassword) {
-    const user = await prisma.user.findFirst({
-        where: { verificationToken: token },
-    });
-
-    if (!user) {
-        throw new Error("Invalid reset token");
-    }
-
-    const hashedPassword = await hashPassword(newPassword);
-
+export async function setupUserEncryption(
+    userId,
+    publicKey,
+    encryptedPrivateKey
+) {
     return await prisma.user.update({
-        where: { id: user.id },
+        where: { id: userId },
         data: {
-            password: hashedPassword,
-            verificationToken: null,
+            publicKey,
+            encryptedPrivateKey,
+        },
+    });
+}
+
+export async function getUserEncryptionKeys(userId) {
+    return await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            publicKey: true,
+            encryptedPrivateKey: true,
+        },
+    });
+}
+
+export async function updateUserEncryptionKeys(
+    userId,
+    publicKey,
+    encryptedPrivateKey
+) {
+    return await prisma.user.update({
+        where: { id: userId },
+        data: {
+            publicKey,
+            encryptedPrivateKey,
         },
     });
 }

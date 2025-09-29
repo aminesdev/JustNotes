@@ -1,3 +1,4 @@
+// src/utils/generateToken.js
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
@@ -25,8 +26,8 @@ export function verifyRefreshToken(token) {
     }
 }
 
-export const generateVerificationToken = () => {
-    return crypto.randomBytes(32).toString("hex");
+export const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 export const generatePasswordResetToken = () => {

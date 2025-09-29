@@ -52,15 +52,13 @@ export const validateRefreshToken = [
 export const validateCreateNote = [
     body("title")
         .trim()
-        .isLength({ min: 1, max: 200 })
-        .withMessage("Title is required and must be less than 200 characters"),
+        .isLength({ min: 1, max: 5000 })
+        .withMessage("Encrypted title is required"),
 
     body("content")
         .trim()
-        .isLength({ min: 1, max: 10000 })
-        .withMessage(
-            "Content is required and must be less than 10,000 characters"
-        ),
+        .isLength({ min: 1, max: 100000 })
+        .withMessage("Encrypted content is required"),
 
     body("categoryId")
         .optional()
@@ -69,11 +67,10 @@ export const validateCreateNote = [
 
     body("tags").optional().isArray().withMessage("Tags must be an array"),
 
-    body("tags.*")
+    body("encryptedKey")
         .optional()
-        .trim()
-        .isLength({ max: 30 })
-        .withMessage("Each tag must be less than 30 characters"),
+        .isString()
+        .withMessage("Encrypted key must be a string"),
 
     body("isPinned")
         .optional()
@@ -89,14 +86,14 @@ export const validateUpdateNote = [
     body("title")
         .optional()
         .trim()
-        .isLength({ min: 1, max: 200 })
-        .withMessage("Title must be between 1 and 200 characters"),
+        .isLength({ min: 1, max: 5000 })
+        .withMessage("Encrypted title must be valid"),
 
     body("content")
         .optional()
         .trim()
-        .isLength({ min: 1, max: 10000 })
-        .withMessage("Content must be between 1 and 10,000 characters"),
+        .isLength({ min: 1, max: 100000 })
+        .withMessage("Encrypted content must be valid"),
 
     body("categoryId")
         .optional()
@@ -105,11 +102,10 @@ export const validateUpdateNote = [
 
     body("tags").optional().isArray().withMessage("Tags must be an array"),
 
-    body("tags.*")
+    body("encryptedKey")
         .optional()
-        .trim()
-        .isLength({ max: 30 })
-        .withMessage("Each tag must be less than 30 characters"),
+        .isString()
+        .withMessage("Encrypted key must be a string"),
 
     body("isPinned")
         .optional()
@@ -127,5 +123,45 @@ export const validateNoteId = [
 
 export const validateEmail = [
     body("email").isEmail().withMessage("Valid email is required"),
+    handleValidationErrors,
+];
+
+export const validatePasswordReset = [
+    body("code")
+        .isLength({ min: 6, max: 6 })
+        .isNumeric()
+        .withMessage("Valid 6-digit code is required"),
+
+    body("newPassword")
+        .isLength({ min: 6 })
+        .withMessage("Password must be at least 6 characters long")
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+        .withMessage(
+            "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+        ),
+
+    handleValidationErrors,
+];
+
+export const validateVerificationCode = [
+    body("code")
+        .isLength({ min: 6, max: 6 })
+        .isNumeric()
+        .withMessage("Valid 6-digit code is required"),
+
+    handleValidationErrors,
+];
+
+export const validateEncryptionSetup = [
+    body("publicKey")
+        .isString()
+        .isLength({ min: 1, max: 10000 })
+        .withMessage("Public key is required"),
+
+    body("encryptedPrivateKey")
+        .isString()
+        .isLength({ min: 1, max: 10000 })
+        .withMessage("Encrypted private key is required"),
+
     handleValidationErrors,
 ];
