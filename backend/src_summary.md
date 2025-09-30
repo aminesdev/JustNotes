@@ -54,16 +54,7 @@ export default app;
 ```js
 import { PrismaClient } from "@prisma/client";
 
-let prisma;
-
-if (process.env.NODE_ENV === "production") {
-    prisma = new PrismaClient();
-} else {
-    if (!global.prisma) {
-        global.prisma = new PrismaClient();
-    }
-    prisma = global.prisma;
-}
+const prisma = new PrismaClient();
 
 export default prisma;
 
@@ -104,8 +95,45 @@ const options = {
         info: {
             title: "E2EE Note-Taking API",
             version: "1.0.0",
-            description:
-                "An end-to-end encrypted note-taking application API. All note content is encrypted on the client side before being sent to the server.",
+            description: `
+# End-to-End Encrypted Note-Taking API
+
+## Important Security Notice
+
+This API is designed for **end-to-end encryption**. All sensitive data must be encrypted **client-side** before being sent to the server.
+
+## Client Responsibilities:
+
+1. **Generate Encryption Keys**: Each user must generate their own RSA key pair
+2. **Encrypt Data Client-Side**: All note content, titles, and metadata must be encrypted before sending to the API
+3. **Manage Keys Securely**: Private keys are encrypted with the user's password and never sent to the server in plaintext
+
+## Data Format Requirements:
+
+- **title**: Base64 encoded encrypted string
+- **content**: Base64 encoded encrypted string  
+- **tags**: Array of base64 encoded encrypted strings
+- **encryptedKey**: Symmetric key encrypted with user's public key (base64)
+- **category name/description**: Base64 encoded encrypted strings
+
+## Encryption Flow:
+
+1. Client generates random symmetric key for each note
+2. Client encrypts note data with symmetric key
+3. Client encrypts symmetric key with user's public key
+4. Client sends encrypted data + encrypted key to server
+5. Server stores only encrypted data
+
+## Decryption Flow:
+
+1. Client retrieves encrypted data from server
+2. Client decrypts symmetric key with their private key
+3. Client decrypts note data with symmetric key
+
+## Validation:
+
+The API validates that all sensitive data is properly base64 encoded. Unencrypted plain text will be rejected.
+            `.trim(),
             contact: {
                 name: "API Support",
                 email: "support@noteapp.com",
@@ -162,6 +190,7 @@ const options = {
                 },
                 Category: {
                     type: "object",
+                    required: ["name"],
                     properties: {
                         id: {
                             type: "string",
@@ -169,17 +198,24 @@ const options = {
                         },
                         name: {
                             type: "string",
-                            description: "Category name (encrypted)",
+                            format: "base64",
+                            description:
+                                "**ENCRYPTED** - Category name (base64 encoded encrypted data)",
+                            example: "RW5jcnlwdGVkQ2F0ZWdvcnlOYW1l",
                         },
                         description: {
                             type: "string",
+                            format: "base64",
                             nullable: true,
-                            description: "Category description (encrypted)",
+                            description:
+                                "**ENCRYPTED** - Category description (base64 encoded encrypted data)",
+                            example: "RW5jcnlwdGVkRGVzY3JpcHRpb24=",
                         },
                         color: {
                             type: "string",
                             default: "#6B73FF",
-                            description: "Category color in hex format",
+                            description:
+                                "Category color in hex format (not encrypted)",
                         },
                         userId: {
                             type: "string",
@@ -197,6 +233,7 @@ const options = {
                 },
                 Note: {
                     type: "object",
+                    required: ["title", "content"],
                     properties: {
                         id: {
                             type: "string",
@@ -204,11 +241,17 @@ const options = {
                         },
                         title: {
                             type: "string",
-                            description: "Note title (encrypted base64)",
+                            format: "base64",
+                            description:
+                                "**ENCRYPTED** - Note title (base64 encoded encrypted data)",
+                            example: "VGhpcyBpcyBhbiBlbmNyeXB0ZWQgdGl0bGU=",
                         },
                         content: {
                             type: "string",
-                            description: "Note content (encrypted base64)",
+                            format: "base64",
+                            description:
+                                "**ENCRYPTED** - Note content (base64 encoded encrypted data)",
+                            example: "VGhpcyBpcyBlbmNyeXB0ZWQgbm90ZSBjb250ZW50",
                         },
                         categoryId: {
                             type: "string",
@@ -228,14 +271,24 @@ const options = {
                             type: "array",
                             items: {
                                 type: "string",
+                                format: "base64",
+                                description:
+                                    "**ENCRYPTED** - Individual tag (base64 encoded encrypted data)",
                             },
-                            description: "Note tags (encrypted)",
+                            description:
+                                "**ENCRYPTED** - Note tags (array of base64 encoded encrypted strings)",
+                            example: [
+                                "RW5jcnlwdGVkVGFnMQ==",
+                                "RW5jcnlwdGVkVGFnMg==",
+                            ],
                         },
                         encryptedKey: {
                             type: "string",
+                            format: "base64",
                             nullable: true,
                             description:
-                                "Symmetric key encrypted with user's public key",
+                                "Symmetric key encrypted with user's public key (base64)",
+                            example: "RW5jcnlwdGVkU3ltbWV0cmljS2V5",
                         },
                         userId: {
                             type: "string",
@@ -296,7 +349,12 @@ const options = {
             },
         ],
     },
-    apis: ["./src/routes/*.js"],
+    apis: [
+        "./src/routes/*.js", // Top-level route files
+        "./src/routes/**/*.js", // All subdirectory route files
+        "./src/routes/auth/*.js", // Specific auth routes
+        "./src/routes/auth/**/*.js", // Auth subdirectory routes
+    ],
 };
 
 const specs = swaggerJsdoc(options);
@@ -522,6 +580,165 @@ export async function resetPasswordHandler(req, res) {
 
 ```
 
+## File: controllers/categoryController.js
+```js
+import * as categoryService from "../services/categoryService.js";
+
+export const createCategory = async (req, res) => {
+    try {
+        const category = await categoryService.createCategory(
+            req.user.id,
+            req.body
+        );
+        res.status(201).json({
+            success: true,
+            message: "Category created successfully",
+            data: category,
+        });
+    } catch (error) {
+        if (error.code === "P2002") {
+            // Prisma unique constraint violation
+            return res.status(400).json({
+                success: false,
+                msg: "A category with this name already exists",
+            });
+        }
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+export const getCategories = async (req, res) => {
+    try {
+        const categories = await categoryService.getUserCategories(req.user.id);
+        res.json({
+            success: true,
+            data: categories,
+            message:
+                categories.length === 0
+                    ? "No categories found"
+                    : "Categories retrieved successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+export const getCategoryById = async (req, res) => {
+    try {
+        const category = await categoryService.getCategoryById(
+            req.user.id,
+            req.params.id
+        );
+        if (!category) {
+            return res
+                .status(404)
+                .json({ success: false, msg: "Category not found" });
+        }
+        res.json({
+            success: true,
+            data: category,
+            message: "Category retrieved successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+export const updateCategory = async (req, res) => {
+    try {
+        const category = await categoryService.updateCategory(
+            req.user.id,
+            req.params.id,
+            req.body
+        );
+        if (!category) {
+            return res
+                .status(404)
+                .json({ success: false, msg: "Category not found" });
+        }
+        res.json({
+            success: true,
+            message: "Category updated successfully",
+            data: category,
+        });
+    } catch (error) {
+        if (error.code === "P2002") {
+            return res.status(400).json({
+                success: false,
+                msg: "A category with this name already exists",
+            });
+        }
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+export const deleteCategory = async (req, res) => {
+    try {
+        const category = await categoryService.deleteCategory(
+            req.user.id,
+            req.params.id
+        );
+        if (!category) {
+            return res
+                .status(404)
+                .json({ success: false, msg: "Category not found" });
+        }
+        res.json({
+            success: true,
+            message: "Category deleted successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+export const getCategoryNotes = async (req, res) => {
+    try {
+        const categoryWithNotes = await categoryService.getCategoryWithNotes(
+            req.user.id,
+            req.params.id
+        );
+        if (!categoryWithNotes) {
+            return res
+                .status(404)
+                .json({ success: false, msg: "Category not found" });
+        }
+        res.json({
+            success: true,
+            data: categoryWithNotes,
+            message: "Category notes retrieved successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            msg: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+```
+
 ## File: controllers/noteController.js
 ```js
 import * as noteService from "../services/noteService.js";
@@ -653,6 +870,134 @@ export function authorizeRoles(...allowedRoles) {
 
 ```
 
+## File: middlewares/emailRateLimit.js
+```js
+import { Ratelimit } from "@upstash/ratelimit";
+import redisClient from "../config/redis.js";
+
+export const emailRateLimiter = new Ratelimit({
+    redis: redisClient,
+    limiter: Ratelimit.slidingWindow(5, "1 h"),
+    analytics: true,
+});
+
+export async function checkEmailRateLimit(identifier) {
+    const { success, reset } = await emailRateLimiter.limit(identifier);
+    if (!success) {
+        throw new Error(
+            `Email rate limit exceeded. Try again at ${new Date(reset)}`
+        );
+    }
+}
+
+```
+
+## File: middlewares/encryptionValidation.js
+```js
+import { body } from "express-validator";
+
+export const validateEncryptedData = (fieldName, maxLength = 100000) => [
+    body(fieldName)
+        .isLength({ min: 1, max: maxLength })
+        .withMessage(`${fieldName} is required`)
+        .custom((value) => {
+            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+            if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                throw new Error(
+                    `${fieldName} must be valid base64 encoded data`
+                );
+            }
+            try {
+                const decoded = Buffer.from(value, "base64").toString();
+                const printableRatio =
+                    decoded.replace(/[^\x20-\x7E]/g, "").length /
+                    decoded.length;
+                if (printableRatio > 0.9 && decoded.length > 10) {
+                    throw new Error(
+                        `${fieldName} appears to be unencrypted plain text. All sensitive data must be encrypted client-side before sending to the API.`
+                    );
+                }
+            } catch (e) {
+
+            }
+
+            return true;
+        }),
+];
+
+export const validateEncryptedTags = [
+    body("tags")
+        .optional()
+        .isArray()
+        .withMessage("Tags must be an array")
+        .custom((tags) => {
+            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+            for (const tag of tags) {
+                if (
+                    typeof tag !== "string" ||
+                    !base64Regex.test(tag) ||
+                    tag.length % 4 !== 0
+                ) {
+                    throw new Error(
+                        "Each tag must be a valid base64 encoded string"
+                    );
+                }
+            }
+            return true;
+        }),
+];
+
+export const validateEncryptedKey = [
+    body("encryptedKey")
+        .optional()
+        .isString()
+        .isLength({ min: 1, max: 5000 })
+        .withMessage("Encrypted key must be a valid base64 string")
+        .custom((value) => {
+            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+            if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                throw new Error(
+                    "Encrypted key must be valid base64 encoded data"
+                );
+            }
+            return true;
+        }),
+];
+
+export const validateEncryptedCategory = [
+    body("name")
+        .isLength({ min: 1, max: 1000 })
+        .withMessage("Category name is required")
+        .custom((value) => {
+            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+            if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                throw new Error(
+                    "Category name must be valid base64 encoded data"
+                );
+            }
+            return true;
+        }),
+
+    body("description")
+        .optional()
+        .isString()
+        .isLength({ max: 5000 })
+        .withMessage("Description must be a string")
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Category description must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+];
+
+```
+
 ## File: middlewares/errorHandler.js
 ```js
 export function errorHandler(err, req, res, next) {
@@ -694,7 +1039,7 @@ export const apiLimiter = new Ratelimit({
 
 export const authLimiter = new Ratelimit({
     redis: redisClient,
-    limiter: Ratelimit.slidingWindow(5, "15 m"), 
+    limiter: Ratelimit.slidingWindow(10, "15 m"), 
     analytics: true,
 });
 
@@ -703,6 +1048,12 @@ export const authLimiter = new Ratelimit({
 ## File: middlewares/validation.js
 ```js
 import { body, param, validationResult } from "express-validator";
+import {
+    validateEncryptedData,
+    validateEncryptedTags,
+    validateEncryptedKey,
+    validateEncryptedCategory,
+} from "./encryptionValidation.js";
 
 export const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
@@ -754,27 +1105,15 @@ export const validateRefreshToken = [
 ];
 
 export const validateCreateNote = [
-    body("title")
-        .trim()
-        .isLength({ min: 1, max: 5000 })
-        .withMessage("Encrypted title is required"),
-
-    body("content")
-        .trim()
-        .isLength({ min: 1, max: 100000 })
-        .withMessage("Encrypted content is required"),
+    ...validateEncryptedData("title", 5000),
+    ...validateEncryptedData("content", 100000),
+    ...validateEncryptedTags,
+    ...validateEncryptedKey,
 
     body("categoryId")
         .optional()
         .isString()
         .withMessage("Category ID must be a string"),
-
-    body("tags").optional().isArray().withMessage("Tags must be an array"),
-
-    body("encryptedKey")
-        .optional()
-        .isString()
-        .withMessage("Encrypted key must be a string"),
 
     body("isPinned")
         .optional()
@@ -789,27 +1128,37 @@ export const validateUpdateNote = [
 
     body("title")
         .optional()
-        .trim()
-        .isLength({ min: 1, max: 5000 })
-        .withMessage("Encrypted title must be valid"),
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error("Title must be valid base64 encoded data");
+                }
+            }
+            return true;
+        }),
 
     body("content")
         .optional()
-        .trim()
-        .isLength({ min: 1, max: 100000 })
-        .withMessage("Encrypted content must be valid"),
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Content must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+
+    ...validateEncryptedTags,
+    ...validateEncryptedKey,
 
     body("categoryId")
         .optional()
         .isString()
         .withMessage("Category ID must be a string"),
-
-    body("tags").optional().isArray().withMessage("Tags must be an array"),
-
-    body("encryptedKey")
-        .optional()
-        .isString()
-        .withMessage("Encrypted key must be a string"),
 
     body("isPinned")
         .optional()
@@ -866,6 +1215,56 @@ export const validateEncryptionSetup = [
         .isString()
         .isLength({ min: 1, max: 10000 })
         .withMessage("Encrypted private key is required"),
+
+    handleValidationErrors,
+];
+
+export const validateCategory = [
+    ...validateEncryptedCategory,
+
+    body("color")
+        .optional()
+        .isHexColor()
+        .withMessage("Color must be a valid hex color"),
+
+    handleValidationErrors,
+];
+
+export const validateCategoryUpdate = [
+    param("id").isLength({ min: 1 }).withMessage("Category ID is required"),
+
+    body("name")
+        .optional()
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Category name must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+
+    body("description")
+        .optional()
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Category description must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+
+    body("color")
+        .optional()
+        .isHexColor()
+        .withMessage("Color must be a valid hex color"),
 
     handleValidationErrors,
 ];
@@ -1188,7 +1587,11 @@ export default router;
 ```js
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import * as categoryService from "../services/categoryService.js";
+import {
+    validateCategory,
+    validateCategoryUpdate,
+} from "../middlewares/validation.js";
+import * as categoryController from "../controllers/categoryController.js";
 
 const router = express.Router();
 
@@ -1221,20 +1624,13 @@ router.use(authenticate);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/", async (req, res) => {
-    try {
-        const categories = await categoryService.getUserCategories(req.user.id);
-        res.json({ success: true, data: categories });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.get("/", categoryController.getCategories);
 
 /**
  * @swagger
  * /api/categories:
  *   post:
- *     summary: Create a new category
+ *     summary: Create a new category (with encrypted name/description)
  *     tags: [Categories]
  *     requestBody:
  *       required: true
@@ -1247,11 +1643,15 @@ router.get("/", async (req, res) => {
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Work"
+ *                 format: base64
+ *                 example: "RW5jcnlwdGVkQ2F0ZWdvcnlOYW1l"
+ *                 description: "**ENCRYPTED** - Category name (base64 encoded encrypted data)"
  *               description:
  *                 type: string
+ *                 format: base64
  *                 nullable: true
- *                 example: "Work-related notes and tasks"
+ *                 example: "RW5jcnlwdGVkRGVzY3JpcHRpb24="
+ *                 description: "**ENCRYPTED** - Category description (base64 encoded encrypted data)"
  *               color:
  *                 type: string
  *                 default: "#6B73FF"
@@ -1275,21 +1675,7 @@ router.get("/", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/", async (req, res) => {
-    try {
-        const category = await categoryService.createCategory(
-            req.user.id,
-            req.body
-        );
-        res.status(201).json({
-            success: true,
-            message: "Category created successfully",
-            data: category,
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.post("/", validateCategory, categoryController.createCategory);
 
 /**
  * @swagger
@@ -1330,28 +1716,43 @@ router.post("/", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/:id", async (req, res) => {
-    try {
-        const category = await categoryService.getCategoryById(
-            req.user.id,
-            req.params.id
-        );
-        if (!category) {
-            return res
-                .status(404)
-                .json({ success: false, msg: "Category not found" });
-        }
-        res.json({ success: true, data: category });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.get("/:id", categoryController.getCategoryById);
+
+/**
+ * @swagger
+ * /api/categories/{id}/notes:
+ *   get:
+ *     summary: Get all notes for a specific category
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     responses:
+ *       200:
+ *         description: Category notes retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Category'
+ *       404:
+ *         description: Category not found
+ */
+router.get("/:id/notes", categoryController.getCategoryNotes);
 
 /**
  * @swagger
  * /api/categories/{id}:
  *   put:
- *     summary: Update category by ID
+ *     summary: Update category by ID (with encrypted fields)
  *     tags: [Categories]
  *     parameters:
  *       - in: path
@@ -1369,11 +1770,15 @@ router.get("/:id", async (req, res) => {
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Updated Work"
+ *                 format: base64
+ *                 example: "VXBkYXRlZENhdGVnb3J5TmFtZQ=="
+ *                 description: "**ENCRYPTED** - Updated category name (base64 encoded encrypted data)"
  *               description:
  *                 type: string
+ *                 format: base64
  *                 nullable: true
- *                 example: "Updated work-related notes"
+ *                 example: "VXBkYXRlZERlc2NyaXB0aW9u"
+ *                 description: "**ENCRYPTED** - Updated category description (base64 encoded encrypted data)"
  *               color:
  *                 type: string
  *                 example: "#33FF57"
@@ -1396,31 +1801,11 @@ router.get("/:id", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put("/:id", async (req, res) => {
-    try {
-        const category = await categoryService.updateCategory(
-            req.user.id,
-            req.params.id,
-            req.body
-        );
-        if (!category) {
-            return res
-                .status(404)
-                .json({ success: false, msg: "Category not found" });
-        }
-        res.json({
-            success: true,
-            message: "Category updated successfully",
-            data: category,
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.put("/:id", validateCategoryUpdate, categoryController.updateCategory);
 
 /**
  * @swagger
-* /api/categories/{id}:
+ * /api/categories/{id}:
  *   delete:
  *     summary: Delete category by ID
  *     tags: [Categories]
@@ -1444,25 +1829,11 @@ router.put("/:id", async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
-*/
-router.delete("/:id", async (req, res) => {
-    try {
-        const category = await categoryService.deleteCategory(
-            req.user.id,
-            req.params.id
-        );
-        if (!category) {
-            return res
-                .status(404)
-                .json({ success: false, msg: "Category not found" });
-        }
-        res.json({ success: true, message: "Category deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+ */
+router.delete("/:id", categoryController.deleteCategory);
 
 export default router;
+
 ```
 
 ## File: routes/docs.js
@@ -1802,10 +2173,8 @@ dotenv.config();
 
 async function startServer() {
     try {
-        // Connect to database
         await connectDb();
 
-        // Test email connection
         const emailReady = await verifyEmailConnection();
         if (!emailReady) {
             console.warn(
@@ -1863,11 +2232,7 @@ export async function registerService(userData) {
 
     const newUser = await createUser(email, password, role || "USER");
 
-    try {
-        await sendVerificationEmail(email, newUser.verificationCode);
-    } catch (emailError) {
-        console.error("Failed to send verification email:", emailError);
-    }
+    await sendVerificationEmail(email, newUser.verificationCode);
 
     return {
         success: true,
@@ -2160,6 +2525,13 @@ export const getUserCategories = async (userId) => {
     return await prisma.category.findMany({
         where: { userId },
         orderBy: { name: "asc" },
+        include: {
+            _count: {
+                select: {
+                    notes: true,
+                },
+            },
+        },
     });
 };
 
@@ -2170,7 +2542,26 @@ export const getCategoryById = async (userId, categoryId) => {
             userId,
         },
         include: {
-            notes: true,
+            notes: {
+                orderBy: { createdAt: "desc" },
+            },
+        },
+    });
+};
+
+export const getCategoryWithNotes = async (userId, categoryId) => {
+    return await prisma.category.findFirst({
+        where: {
+            id: categoryId,
+            userId,
+        },
+        include: {
+            notes: {
+                orderBy: { createdAt: "desc" },
+                include: {
+                    category: true,
+                },
+            },
         },
     });
 };
@@ -2198,24 +2589,36 @@ export const deleteCategory = async (userId, categoryId) => {
 
 ## File: services/emailService.js
 ```js
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+import { checkEmailRateLimit } from "../middlewares/emailRateLimit.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+    },
+});
 
 export const verifyEmailConnection = async () => {
     try {
-        console.log("Resend email service configured");
+        await transporter.verify();
+        console.log("Nodemailer Gmail service configured successfully");
         return true;
     } catch (error) {
-        console.error("Resend connection failed:", error);
+        console.error("Nodemailer connection failed:", error);
         return false;
     }
 };
 
 export const sendVerificationEmail = async (email, code) => {
     try {
-        const { data, error } = await resend.emails.send({
-            from: "Note App <onboarding@resend.dev>",
+        await checkEmailRateLimit(email);
+        const mailOptions = {
+            from: {
+                name: "Note App",
+                address: process.env.GMAIL_USER,
+            },
             to: email,
             subject: "Verify Your Email - Note App",
             html: `
@@ -2230,16 +2633,15 @@ export const sendVerificationEmail = async (email, code) => {
                 </div>
             `,
             text: `Your verification code is: ${code}. This code will expire in 15 minutes.`,
-        });
+        };
 
-        if (error) {
-            console.error("Resend error:", error);
-            throw new Error("Failed to send verification email");
-        }
-
-        console.log("Verification email sent:", data.id);
-        return data;
+        const result = await transporter.sendMail(mailOptions);
+        console.log("Verification email sent:", result.messageId);
+        return result;
     } catch (error) {
+        if (error.message.includes("rate limit")) {
+            throw error;
+        }
         console.error("Failed to send verification email:", error);
         throw new Error("Failed to send verification email");
     }
@@ -2247,8 +2649,11 @@ export const sendVerificationEmail = async (email, code) => {
 
 export const sendPasswordResetEmail = async (email, code) => {
     try {
-        const { data, error } = await resend.emails.send({
-            from: "Note App <onboarding@resend.dev>",
+        const mailOptions = {
+            from: {
+                name: "Note App",
+                address: process.env.GMAIL_USER,
+            },
             to: email,
             subject: "Password Reset Request - Note App",
             html: `
@@ -2263,20 +2668,17 @@ export const sendPasswordResetEmail = async (email, code) => {
                 </div>
             `,
             text: `Your password reset code is: ${code}. This code will expire in 15 minutes.`,
-        });
+        };
 
-        if (error) {
-            console.error("Resend error:", error);
-            throw new Error("Failed to send password reset email");
-        }
-
-        console.log("Password reset email sent:", data.id);
-        return data;
+        const result = await transporter.sendMail(mailOptions);
+        console.log("Password reset email sent:", result.messageId);
+        return result;
     } catch (error) {
         console.error("Failed to send password reset email:", error);
         throw new Error("Failed to send password reset email");
     }
 };
+
 ```
 
 ## File: services/noteService.js

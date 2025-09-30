@@ -26,11 +26,7 @@ export async function registerService(userData) {
 
     const newUser = await createUser(email, password, role || "USER");
 
-    try {
-        await sendVerificationEmail(email, newUser.verificationCode);
-    } catch (emailError) {
-        console.error("Failed to send verification email:", emailError);
-    }
+    await sendVerificationEmail(email, newUser.verificationCode);
 
     return {
         success: true,

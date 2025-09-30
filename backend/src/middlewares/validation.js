@@ -1,4 +1,10 @@
 import { body, param, validationResult } from "express-validator";
+import {
+    validateEncryptedData,
+    validateEncryptedTags,
+    validateEncryptedKey,
+    validateEncryptedCategory,
+} from "./encryptionValidation.js";
 
 export const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
@@ -50,27 +56,15 @@ export const validateRefreshToken = [
 ];
 
 export const validateCreateNote = [
-    body("title")
-        .trim()
-        .isLength({ min: 1, max: 5000 })
-        .withMessage("Encrypted title is required"),
-
-    body("content")
-        .trim()
-        .isLength({ min: 1, max: 100000 })
-        .withMessage("Encrypted content is required"),
+    ...validateEncryptedData("title", 5000),
+    ...validateEncryptedData("content", 100000),
+    ...validateEncryptedTags,
+    ...validateEncryptedKey,
 
     body("categoryId")
         .optional()
         .isString()
         .withMessage("Category ID must be a string"),
-
-    body("tags").optional().isArray().withMessage("Tags must be an array"),
-
-    body("encryptedKey")
-        .optional()
-        .isString()
-        .withMessage("Encrypted key must be a string"),
 
     body("isPinned")
         .optional()
@@ -85,27 +79,37 @@ export const validateUpdateNote = [
 
     body("title")
         .optional()
-        .trim()
-        .isLength({ min: 1, max: 5000 })
-        .withMessage("Encrypted title must be valid"),
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error("Title must be valid base64 encoded data");
+                }
+            }
+            return true;
+        }),
 
     body("content")
         .optional()
-        .trim()
-        .isLength({ min: 1, max: 100000 })
-        .withMessage("Encrypted content must be valid"),
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Content must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+
+    ...validateEncryptedTags,
+    ...validateEncryptedKey,
 
     body("categoryId")
         .optional()
         .isString()
         .withMessage("Category ID must be a string"),
-
-    body("tags").optional().isArray().withMessage("Tags must be an array"),
-
-    body("encryptedKey")
-        .optional()
-        .isString()
-        .withMessage("Encrypted key must be a string"),
 
     body("isPinned")
         .optional()
@@ -162,6 +166,56 @@ export const validateEncryptionSetup = [
         .isString()
         .isLength({ min: 1, max: 10000 })
         .withMessage("Encrypted private key is required"),
+
+    handleValidationErrors,
+];
+
+export const validateCategory = [
+    ...validateEncryptedCategory,
+
+    body("color")
+        .optional()
+        .isHexColor()
+        .withMessage("Color must be a valid hex color"),
+
+    handleValidationErrors,
+];
+
+export const validateCategoryUpdate = [
+    param("id").isLength({ min: 1 }).withMessage("Category ID is required"),
+
+    body("name")
+        .optional()
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Category name must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+
+    body("description")
+        .optional()
+        .custom((value) => {
+            if (value) {
+                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                if (!base64Regex.test(value) || value.length % 4 !== 0) {
+                    throw new Error(
+                        "Category description must be valid base64 encoded data"
+                    );
+                }
+            }
+            return true;
+        }),
+
+    body("color")
+        .optional()
+        .isHexColor()
+        .withMessage("Color must be a valid hex color"),
 
     handleValidationErrors,
 ];

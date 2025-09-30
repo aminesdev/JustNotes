@@ -17,6 +17,13 @@ export const getUserCategories = async (userId) => {
     return await prisma.category.findMany({
         where: { userId },
         orderBy: { name: "asc" },
+        include: {
+            _count: {
+                select: {
+                    notes: true,
+                },
+            },
+        },
     });
 };
 
@@ -27,7 +34,26 @@ export const getCategoryById = async (userId, categoryId) => {
             userId,
         },
         include: {
-            notes: true,
+            notes: {
+                orderBy: { createdAt: "desc" },
+            },
+        },
+    });
+};
+
+export const getCategoryWithNotes = async (userId, categoryId) => {
+    return await prisma.category.findFirst({
+        where: {
+            id: categoryId,
+            userId,
+        },
+        include: {
+            notes: {
+                orderBy: { createdAt: "desc" },
+                include: {
+                    category: true,
+                },
+            },
         },
     });
 };

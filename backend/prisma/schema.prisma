@@ -13,9 +13,9 @@ model User {
   password               String
   role                   UserRole       @default(USER)
   createdAt              DateTime       @default(now())
-  email                  String         @unique
+  email                  String         @unique @db.VarChar(255)
   isVerified             Boolean        @default(false)
-  verificationCode       String?        
+  verificationCode       String?        @db.VarChar(6)
   verificationCodeExpiry DateTime?  
   publicKey              String?        @db.Text
   encryptedPrivateKey    String?        @db.Text
@@ -28,8 +28,8 @@ model User {
 
 model Category {
   id          String   @id @default(cuid())
-  name        String   @db.Text
-  description String?  @db.Text
+  name        String   @db.Text 
+  description String?  @db.Text 
   color       String?  @default("#6B73FF")
   userId      String
   createdAt   DateTime @default(now())
@@ -38,16 +38,17 @@ model Category {
   notes       Note[]
 
   @@index([userId])
+  @@unique([userId, name])
   @@map("categories")
 }
 
 model Note {
   id            String    @id @default(cuid())
-  title         String    @db.Text
-  content       String    @db.Text
+  title         String    @db.Text  
+  content       String    @db.Text  
   isPinned      Boolean   @default(false)
-  tags          String[]
-  encryptedKey  String?   @db.Text
+  tags          String[]  
+  encryptedKey  String?   @db.Text  
   userId        String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -58,12 +59,13 @@ model Note {
   @@index([userId, categoryId])
   @@index([userId, isPinned])
   @@index([userId, createdAt])
+  @@unique([userId, title])
   @@map("notes")
 }
 
 model RefreshToken {
   id        String   @id @default(cuid())
-  token     String   @unique
+  token     String   @unique @db.VarChar(500)
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())

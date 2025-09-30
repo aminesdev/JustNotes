@@ -1,21 +1,33 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+import { checkEmailRateLimit } from "../middlewares/emailRateLimit.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+    },
+});
 
 export const verifyEmailConnection = async () => {
     try {
-        console.log("Resend email service configured");
+        await transporter.verify();
+        console.log("Nodemailer Gmail service configured successfully");
         return true;
     } catch (error) {
-        console.error("Resend connection failed:", error);
+        console.error("Nodemailer connection failed:", error);
         return false;
     }
 };
 
 export const sendVerificationEmail = async (email, code) => {
     try {
-        const { data, error } = await resend.emails.send({
-            from: "Note App <onboarding@resend.dev>",
+        await checkEmailRateLimit(email);
+        const mailOptions = {
+            from: {
+                name: "Note App",
+                address: process.env.GMAIL_USER,
+            },
             to: email,
             subject: "Verify Your Email - Note App",
             html: `
@@ -30,16 +42,15 @@ export const sendVerificationEmail = async (email, code) => {
                 </div>
             `,
             text: `Your verification code is: ${code}. This code will expire in 15 minutes.`,
-        });
+        };
 
-        if (error) {
-            console.error("Resend error:", error);
-            throw new Error("Failed to send verification email");
-        }
-
-        console.log("Verification email sent:", data.id);
-        return data;
+        const result = await transporter.sendMail(mailOptions);
+        console.log("Verification email sent:", result.messageId);
+        return result;
     } catch (error) {
+        if (error.message.includes("rate limit")) {
+            throw error;
+        }
         console.error("Failed to send verification email:", error);
         throw new Error("Failed to send verification email");
     }
@@ -47,8 +58,11 @@ export const sendVerificationEmail = async (email, code) => {
 
 export const sendPasswordResetEmail = async (email, code) => {
     try {
-        const { data, error } = await resend.emails.send({
-            from: "Note App <onboarding@resend.dev>",
+        const mailOptions = {
+            from: {
+                name: "Note App",
+                address: process.env.GMAIL_USER,
+            },
             to: email,
             subject: "Password Reset Request - Note App",
             html: `
@@ -63,15 +77,11 @@ export const sendPasswordResetEmail = async (email, code) => {
                 </div>
             `,
             text: `Your password reset code is: ${code}. This code will expire in 15 minutes.`,
-        });
+        };
 
-        if (error) {
-            console.error("Resend error:", error);
-            throw new Error("Failed to send password reset email");
-        }
-
-        console.log("Password reset email sent:", data.id);
-        return data;
+        const result = await transporter.sendMail(mailOptions);
+        console.log("Password reset email sent:", result.messageId);
+        return result;
     } catch (error) {
         console.error("Failed to send password reset email:", error);
         throw new Error("Failed to send password reset email");

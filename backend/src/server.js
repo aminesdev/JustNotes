@@ -7,10 +7,8 @@ dotenv.config();
 
 async function startServer() {
     try {
-        // Connect to database
         await connectDb();
 
-        // Test email connection
         const emailReady = await verifyEmailConnection();
         if (!emailReady) {
             console.warn(

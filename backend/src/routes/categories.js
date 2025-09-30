@@ -1,6 +1,10 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import * as categoryService from "../services/categoryService.js";
+import {
+    validateCategory,
+    validateCategoryUpdate,
+} from "../middlewares/validation.js";
+import * as categoryController from "../controllers/categoryController.js";
 
 const router = express.Router();
 
@@ -33,20 +37,13 @@ router.use(authenticate);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/", async (req, res) => {
-    try {
-        const categories = await categoryService.getUserCategories(req.user.id);
-        res.json({ success: true, data: categories });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.get("/", categoryController.getCategories);
 
 /**
  * @swagger
  * /api/categories:
  *   post:
- *     summary: Create a new category
+ *     summary: Create a new category (with encrypted name/description)
  *     tags: [Categories]
  *     requestBody:
  *       required: true
@@ -59,11 +56,15 @@ router.get("/", async (req, res) => {
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Work"
+ *                 format: base64
+ *                 example: "RW5jcnlwdGVkQ2F0ZWdvcnlOYW1l"
+ *                 description: "**ENCRYPTED** - Category name (base64 encoded encrypted data)"
  *               description:
  *                 type: string
+ *                 format: base64
  *                 nullable: true
- *                 example: "Work-related notes and tasks"
+ *                 example: "RW5jcnlwdGVkRGVzY3JpcHRpb24="
+ *                 description: "**ENCRYPTED** - Category description (base64 encoded encrypted data)"
  *               color:
  *                 type: string
  *                 default: "#6B73FF"
@@ -87,21 +88,7 @@ router.get("/", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/", async (req, res) => {
-    try {
-        const category = await categoryService.createCategory(
-            req.user.id,
-            req.body
-        );
-        res.status(201).json({
-            success: true,
-            message: "Category created successfully",
-            data: category,
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.post("/", validateCategory, categoryController.createCategory);
 
 /**
  * @swagger
@@ -142,28 +129,43 @@ router.post("/", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/:id", async (req, res) => {
-    try {
-        const category = await categoryService.getCategoryById(
-            req.user.id,
-            req.params.id
-        );
-        if (!category) {
-            return res
-                .status(404)
-                .json({ success: false, msg: "Category not found" });
-        }
-        res.json({ success: true, data: category });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.get("/:id", categoryController.getCategoryById);
+
+/**
+ * @swagger
+ * /api/categories/{id}/notes:
+ *   get:
+ *     summary: Get all notes for a specific category
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     responses:
+ *       200:
+ *         description: Category notes retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Category'
+ *       404:
+ *         description: Category not found
+ */
+router.get("/:id/notes", categoryController.getCategoryNotes);
 
 /**
  * @swagger
  * /api/categories/{id}:
  *   put:
- *     summary: Update category by ID
+ *     summary: Update category by ID (with encrypted fields)
  *     tags: [Categories]
  *     parameters:
  *       - in: path
@@ -181,11 +183,15 @@ router.get("/:id", async (req, res) => {
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Updated Work"
+ *                 format: base64
+ *                 example: "VXBkYXRlZENhdGVnb3J5TmFtZQ=="
+ *                 description: "**ENCRYPTED** - Updated category name (base64 encoded encrypted data)"
  *               description:
  *                 type: string
+ *                 format: base64
  *                 nullable: true
- *                 example: "Updated work-related notes"
+ *                 example: "VXBkYXRlZERlc2NyaXB0aW9u"
+ *                 description: "**ENCRYPTED** - Updated category description (base64 encoded encrypted data)"
  *               color:
  *                 type: string
  *                 example: "#33FF57"
@@ -208,31 +214,11 @@ router.get("/:id", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put("/:id", async (req, res) => {
-    try {
-        const category = await categoryService.updateCategory(
-            req.user.id,
-            req.params.id,
-            req.body
-        );
-        if (!category) {
-            return res
-                .status(404)
-                .json({ success: false, msg: "Category not found" });
-        }
-        res.json({
-            success: true,
-            message: "Category updated successfully",
-            data: category,
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+router.put("/:id", validateCategoryUpdate, categoryController.updateCategory);
 
 /**
  * @swagger
-* /api/categories/{id}:
+ * /api/categories/{id}:
  *   delete:
  *     summary: Delete category by ID
  *     tags: [Categories]
@@ -256,22 +242,7 @@ router.put("/:id", async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
-*/
-router.delete("/:id", async (req, res) => {
-    try {
-        const category = await categoryService.deleteCategory(
-            req.user.id,
-            req.params.id
-        );
-        if (!category) {
-            return res
-                .status(404)
-                .json({ success: false, msg: "Category not found" });
-        }
-        res.json({ success: true, message: "Category deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
+ */
+router.delete("/:id", categoryController.deleteCategory);
 
 export default router;

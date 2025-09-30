@@ -9,6 +9,6 @@ export const apiLimiter = new Ratelimit({
 
 export const authLimiter = new Ratelimit({
     redis: redisClient,
-    limiter: Ratelimit.slidingWindow(5, "15 m"), 
+    limiter: Ratelimit.slidingWindow(10, "15 m"), 
     analytics: true,
 });
