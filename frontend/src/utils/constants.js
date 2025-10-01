@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-    import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+    import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 export const APP_NAME = import.meta.env.VITE_APP_NAME || "LockNote";
 
 export const ROUTES = {

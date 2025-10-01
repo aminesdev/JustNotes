@@ -53,7 +53,7 @@ The API validates that all sensitive data is properly base64 encoded. Unencrypte
         },
         servers: [
             {
-                url: process.env.APP_URL || "http://localhost:3000",
+                url: process.env.APP_URL || "http://localhost:3001",
                 description: "Development server",
             },
         ],

@@ -20,6 +20,7 @@
         "@upstash/ratelimit": "^2.0.6",
         "@upstash/redis": "^1.35.4",
         "bcrypt": "^6.0.0",
+        "cors": "^2.8.5",
         "crypto-js": "^4.2.0",
         "dotenv": "^17.2.2",
         "express": "^5.1.0",

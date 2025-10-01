@@ -2,8 +2,18 @@ import api from "./api";
 
 export const categoriesService = {
     getCategories: async () => {
-        const response = await api.get("/categories");
-        return response.data;
+        try {
+            const response = await api.get("/categories");
+            return response.data;
+        } catch (error) {
+            if (error.response?.status === 401) {
+                throw new Error("Authentication required. Please login again.");
+            }
+            if (error.response?.status === 404) {
+                return [];
+            }
+            throw error;
+        }
     },
 
     getCategoryById: async (id) => {
@@ -12,7 +22,13 @@ export const categoriesService = {
     },
 
     createCategory: async (categoryData) => {
-        const response = await api.post("/categories", categoryData);
+        const payload = {
+            name: categoryData.name.trim(),
+            description: categoryData.description?.trim() || null,
+            color: categoryData.color || "#6B73FF",
+        };
+
+        const response = await api.post("/categories", payload);
         return response.data;
     },
 

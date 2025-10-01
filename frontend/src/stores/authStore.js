@@ -1,11 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { authService } from "../services/authService";
-import {
-    getStorageItem,
-    setStorageItem,
-    removeStorageItem,
-} from "../utils/helpers";
 
 export const useAuthStore = create(
     persist(
@@ -15,105 +10,161 @@ export const useAuthStore = create(
             refreshToken: null,
             isLoading: false,
             error: null,
-            isAuthenticated: false,
+            isInitialized: false,
+
+            initialize: () => {
+                const token = localStorage.getItem("accessToken");
+                const userData = localStorage.getItem("userData");
+
+                if (token && userData) {
+                    try {
+                        const user = JSON.parse(userData);
+                        const refreshToken =
+                            localStorage.getItem("refreshToken");
+
+                        set({
+                            user,
+                            accessToken: token,
+                            refreshToken,
+                            isInitialized: true,
+                        });
+                    } catch {
+                        get().clearAuth();
+                    }
+                } else {
+                    set({ isInitialized: true });
+                }
+            },
+
+            // ADD THIS FUNCTION
+            setUser: (user) => {
+                set({ user });
+                // Also update localStorage
+                if (user) {
+                    localStorage.setItem("userData", JSON.stringify(user));
+                }
+            },
 
             login: async (credentials) => {
                 set({ isLoading: true, error: null });
+
                 try {
                     const response = await authService.login(credentials);
                     const { user, accessToken, refreshToken } = response.data;
+
+                    // Store in both Zustand state AND localStorage
+                    localStorage.setItem("accessToken", accessToken);
+                    localStorage.setItem("refreshToken", refreshToken);
+                    localStorage.setItem("userData", JSON.stringify(user));
 
                     set({
                         user,
                         accessToken,
                         refreshToken,
-                        isAuthenticated: true,
                         isLoading: false,
                         error: null,
                     });
 
-                    setStorageItem("accessToken", accessToken);
-                    setStorageItem("refreshToken", refreshToken);
-                    setStorageItem("userData", user);
-
                     return response;
                 } catch (error) {
-                    const errorMessage =
-                        error.response?.data?.msg || "Login failed";
-                    set({
-                        isLoading: false,
-                        error: errorMessage,
-                    });
+                    set({ isLoading: false, error: error.message });
                     throw error;
                 }
             },
 
             register: async (userData) => {
                 set({ isLoading: true, error: null });
+
                 try {
                     const response = await authService.register(userData);
                     set({ isLoading: false, error: null });
                     return response;
                 } catch (error) {
-                    const errorMessage =
-                        error.response?.data?.msg || "Registration failed";
-                    set({
-                        isLoading: false,
-                        error: errorMessage,
-                    });
+                    set({ isLoading: false, error: error.message });
+                    throw error;
+                }
+            },
+
+            verifyEmail: async (code) => {
+                set({ isLoading: true, error: null });
+
+                try {
+                    const response = await authService.verifyEmail(code);
+
+                    if (response.data.user && response.data.accessToken) {
+                        const { user, accessToken, refreshToken } =
+                            response.data;
+
+                        // Store in both Zustand state AND localStorage
+                        localStorage.setItem("accessToken", accessToken);
+                        localStorage.setItem("refreshToken", refreshToken);
+                        localStorage.setItem("userData", JSON.stringify(user));
+
+                        set({
+                            user,
+                            accessToken,
+                            refreshToken,
+                            isLoading: false,
+                            error: null,
+                        });
+                    }
+
+                    return response;
+                } catch (error) {
+                    set({ isLoading: false, error: error.message });
+                    throw error;
+                }
+            },
+
+            resendVerification: async (email) => {
+                set({ isLoading: true, error: null });
+
+                try {
+                    const response = await authService.resendVerification(
+                        email
+                    );
+                    set({ isLoading: false });
+                    return response;
+                } catch (error) {
+                    set({ isLoading: false, error: error.message });
                     throw error;
                 }
             },
 
             logout: async () => {
                 set({ isLoading: true });
+
                 try {
                     await authService.logout();
                 } catch (error) {
                     console.error("Logout error:", error);
                 } finally {
+                    // Clear everything
+                    localStorage.removeItem("accessToken");
+                    localStorage.removeItem("refreshToken");
+                    localStorage.removeItem("userData");
+                    localStorage.removeItem("auth-storage");
+
                     set({
                         user: null,
                         accessToken: null,
                         refreshToken: null,
-                        isAuthenticated: false,
                         isLoading: false,
                         error: null,
                     });
-
-                    removeStorageItem("accessToken");
-                    removeStorageItem("refreshToken");
-                    removeStorageItem("userData");
                 }
             },
 
-            verifyEmail: async (code) => {
-                set({ isLoading: true, error: null });
-                try {
-                    const response = await authService.verifyEmail(code);
-                    const currentUser = get().user;
-                    if (currentUser) {
-                        set({
-                            user: { ...currentUser, isVerified: true },
-                            isLoading: false,
-                        });
-                    }
-                    return response;
-                } catch (error) {
-                    const errorMessage =
-                        error.response?.data?.msg ||
-                        "Email verification failed";
-                    set({
-                        isLoading: false,
-                        error: errorMessage,
-                    });
-                    throw error;
-                }
+            clearAuth: () => {
+                set({
+                    user: null,
+                    accessToken: null,
+                    refreshToken: null,
+                    error: null,
+                });
             },
 
             clearError: () => set({ error: null }),
-
-            setUser: (user) => set({ user }),
         }),
         {
             name: "auth-storage",
@@ -121,7 +172,6 @@ export const useAuthStore = create(
                 user: state.user,
                 accessToken: state.accessToken,
                 refreshToken: state.refreshToken,
-                isAuthenticated: state.isAuthenticated,
             }),
         }
     )

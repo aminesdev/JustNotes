@@ -39,16 +39,6 @@ export const authService = {
         return response.data;
     },
 
-    getEncryptionKeys: async () => {
-        const response = await api.get("/auth/encryption/keys");
-        return response.data;
-    },
-
-    updateEncryptionKeys: async (keys) => {
-        const response = await api.put("/auth/encryption/update", keys);
-        return response.data;
-    },
-
     logout: async () => {
         const refreshToken = localStorage.getItem("refreshToken");
         if (refreshToken) {
