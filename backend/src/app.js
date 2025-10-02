@@ -5,8 +5,6 @@ import { specs, swaggerUi } from "./config/swagger.js";
 import cors from "cors";
 
 const app = express();
-const FRONTEND_URL = process.env.FRONTEND_URL;
-
 app.use(
     cors({
         origin: true,
