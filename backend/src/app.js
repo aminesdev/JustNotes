@@ -7,7 +7,7 @@ import cors from "cors";
 const app = express();
 app.use(
     cors({
-        origin: true,
+        origin: "https://just-notes-8z5w53bu6-aminesdevs-projects.vercel.app",
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
