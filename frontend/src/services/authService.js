@@ -34,11 +34,6 @@ export const authService = {
         return response.data;
     },
 
-    setupEncryption: async (keys) => {
-        const response = await api.post("/auth/encryption/setup", keys);
-        return response.data;
-    },
-
     logout: async () => {
         const refreshToken = localStorage.getItem("refreshToken");
         if (refreshToken) {

@@ -2,14 +2,12 @@ import React, {useEffect, useState} from 'react';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {useAuthStore} from '../stores/authStore';
-import EncryptionSetup from '../components/auth/EncryptionSetup';
 
 const Profile = () => {
     const {user, logout} = useAuthStore();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Simulate loading to ensure data is ready
         const timer = setTimeout(() => {
             setIsLoading(false);
         }, 500);
@@ -41,8 +39,6 @@ const Profile = () => {
                     Manage your account settings and preferences
                 </p>
             </div>
-
-            <EncryptionSetup />
 
             <Card>
                 <CardHeader>

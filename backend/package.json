@@ -1,5 +1,5 @@
 {
-    "name": "note-app",
+    "name": "JustNotess",
     "version": "1.0.0",
     "description": "",
     "main": "index.js",
@@ -21,7 +21,6 @@
         "@upstash/redis": "^1.35.4",
         "bcrypt": "^6.0.0",
         "cors": "^2.8.5",
-        "crypto-js": "^4.2.0",
         "dotenv": "^17.2.2",
         "express": "^5.1.0",
         "express-rate-limit": "^8.1.0",

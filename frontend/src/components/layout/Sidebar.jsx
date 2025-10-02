@@ -39,7 +39,7 @@ const Sidebar = () => {
         <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-background border-r transform transition-transform duration-300 ease-in-out md:translate-x-0 -translate-x-full">
             <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-lg font-semibold">LockNote</h2>
+                    <h2 className="text-lg font-semibold">JustNotes</h2>
                     {currentCategoryFilter && (
                         <Button
                             variant="ghost"
@@ -65,7 +65,7 @@ const Sidebar = () => {
                             <Button
                                 variant={isActive(item.href) ? "secondary" : "ghost"}
                                 className={cn(
-                                    "w-full justify-start gap-3",
+                                    "w-full justify-start gap-3 mb-1 mt-1",
                                     isActive(item.href) && "bg-secondary"
                                 )}
                             >
@@ -76,43 +76,46 @@ const Sidebar = () => {
                     ))}
 
                     {/* Categories Section */}
-                    {categories.length > 0 && (
-                        <div className="pt-6">
-                            <div className="flex items-center justify-between px-3 mb-2">
-                                <h3 className="text-sm font-medium text-muted-foreground">Categories</h3>
-                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    {categories.length}
-                                </span>
-                            </div>
-                            <div className="space-y-1">
-                                {categories.slice(0, 8).map((category) => (
-                                    <Button
-                                        key={category.id}
-                                        variant={currentCategoryFilter === category.id ? "secondary" : "ghost"}
-                                        className={cn(
-                                            "w-full justify-start gap-2 text-sm",
-                                            currentCategoryFilter === category.id && "bg-secondary"
-                                        )}
-                                        onClick={() => handleCategoryClick(category)}
-                                    >
-                                        <div
-                                            className="w-2 h-2 rounded-full flex-shrink-0"
-                                            style={{backgroundColor: category.color || '#6B73FF'}}
-                                        />
-                                        <span className="truncate flex-1 text-left">{category.name}</span>
-                                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                            {category.noteCount || category._count?.notes || 0}
-                                        </span>
-                                    </Button>
-                                ))}
-                                {categories.length > 8 && (
-                                    <Button variant="ghost" className="w-full justify-start text-sm text-muted-foreground">
-                                        +{categories.length - 8} more
-                                    </Button>
-                                )}
-                            </div>
+                    <div className="pt-6">
+                        <div className="flex items-center justify-between px-3 mb-2">
+                            <h3 className="text-sm font-medium text-muted-foreground">Categories</h3>
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                {categories.length}
+                            </span>
                         </div>
-                    )}
+                        <div className="space-y-1 max-h-60 overflow-y-auto">
+                            {categories.slice(0, 10).map((category) => (
+                                <Button
+                                    key={category.id}
+                                    variant={currentCategoryFilter === category.id ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "w-full justify-start gap-3 text-sm h-8 ",
+                                        currentCategoryFilter === category.id && "bg-secondary"
+                                    )}
+                                    onClick={() => handleCategoryClick(category)}
+                                >
+                                    <div
+                                        className="w-2 h-2 rounded-full flex-shrink-0"
+                                        style={{backgroundColor: category.color || '#6B73FF'}}
+                                    />
+                                    <span className="truncate flex-1 text-left">{category.name}</span>
+                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                        {category.noteCount || category._count?.notes || 0}
+                                    </span>
+                                </Button>
+                            ))}
+                            {categories.length > 10 && (
+                                <Button variant="ghost" className="w-full justify-center text-sm text-muted-foreground h-8">
+                                    +{categories.length - 10} more
+                                </Button>
+                            )}
+                            {categories.length === 0 && (
+                                <p className="text-xs text-muted-foreground px-3 py-2 text-center">
+                                    No categories yet
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </nav>
             </div>
         </aside>

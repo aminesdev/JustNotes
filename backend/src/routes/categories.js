@@ -43,7 +43,7 @@ router.get("/", categoryController.getCategories);
  * @swagger
  * /api/categories:
  *   post:
- *     summary: Create a new category (with encrypted name/description)
+ *     summary: Create a new category
  *     tags: [Categories]
  *     requestBody:
  *       required: true
@@ -56,15 +56,13 @@ router.get("/", categoryController.getCategories);
  *             properties:
  *               name:
  *                 type: string
- *                 format: base64
- *                 example: "RW5jcnlwdGVkQ2F0ZWdvcnlOYW1l"
- *                 description: "**ENCRYPTED** - Category name (base64 encoded encrypted data)"
+ *                 example: "Work"
+ *                 description: "Category name"
  *               description:
  *                 type: string
- *                 format: base64
  *                 nullable: true
- *                 example: "RW5jcnlwdGVkRGVzY3JpcHRpb24="
- *                 description: "**ENCRYPTED** - Category description (base64 encoded encrypted data)"
+ *                 example: "Work-related notes"
+ *                 description: "Category description"
  *               color:
  *                 type: string
  *                 default: "#6B73FF"
@@ -165,7 +163,7 @@ router.get("/:id/notes", categoryController.getCategoryNotes);
  * @swagger
  * /api/categories/{id}:
  *   put:
- *     summary: Update category by ID (with encrypted fields)
+ *     summary: Update category by ID
  *     tags: [Categories]
  *     parameters:
  *       - in: path
@@ -183,15 +181,13 @@ router.get("/:id/notes", categoryController.getCategoryNotes);
  *             properties:
  *               name:
  *                 type: string
- *                 format: base64
- *                 example: "VXBkYXRlZENhdGVnb3J5TmFtZQ=="
- *                 description: "**ENCRYPTED** - Updated category name (base64 encoded encrypted data)"
+ *                 example: "Updated Category"
+ *                 description: "Updated category name"
  *               description:
  *                 type: string
- *                 format: base64
  *                 nullable: true
- *                 example: "VXBkYXRlZERlc2NyaXB0aW9u"
- *                 description: "**ENCRYPTED** - Updated category description (base64 encoded encrypted data)"
+ *                 example: "Updated description"
+ *                 description: "Updated category description"
  *               color:
  *                 type: string
  *                 example: "#33FF57"

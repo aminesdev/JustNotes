@@ -17,8 +17,6 @@ model User {
   isVerified             Boolean        @default(false)
   verificationCode       String?        @db.VarChar(6)
   verificationCodeExpiry DateTime?  
-  publicKey              String?        @db.Text
-  encryptedPrivateKey    String?        @db.Text
   categories             Category[]
   notes                  Note[]
   refreshTokens          RefreshToken[]
@@ -48,7 +46,6 @@ model Note {
   content       String    @db.Text  
   isPinned      Boolean   @default(false)
   tags          String[]  
-  encryptedKey  String?   @db.Text  
   userId        String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

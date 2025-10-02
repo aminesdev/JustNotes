@@ -5,46 +5,26 @@ const options = {
     definition: {
         openapi: "3.0.0",
         info: {
-            title: "E2EE Note-Taking API",
+            title: "Note-Taking API",
             version: "1.0.0",
             description: `
-# End-to-End Encrypted Note-Taking API
+# Note-Taking API
 
-## Important Security Notice
+A secure note-taking application with user authentication and organization features.
 
-This API is designed for **end-to-end encryption**. All sensitive data must be encrypted **client-side** before being sent to the server.
+## Features:
+- User registration and authentication
+- Note creation, reading, updating, and deletion
+- Category organization
+- Tagging system
+- Email verification
+- Password reset
 
-## Client Responsibilities:
-
-1. **Generate Encryption Keys**: Each user must generate their own RSA key pair
-2. **Encrypt Data Client-Side**: All note content, titles, and metadata must be encrypted before sending to the API
-3. **Manage Keys Securely**: Private keys are encrypted with the user's password and never sent to the server in plaintext
-
-## Data Format Requirements:
-
-- **title**: Base64 encoded encrypted string
-- **content**: Base64 encoded encrypted string  
-- **tags**: Array of base64 encoded encrypted strings
-- **encryptedKey**: Symmetric key encrypted with user's public key (base64)
-- **category name/description**: Base64 encoded encrypted strings
-
-## Encryption Flow:
-
-1. Client generates random symmetric key for each note
-2. Client encrypts note data with symmetric key
-3. Client encrypts symmetric key with user's public key
-4. Client sends encrypted data + encrypted key to server
-5. Server stores only encrypted data
-
-## Decryption Flow:
-
-1. Client retrieves encrypted data from server
-2. Client decrypts symmetric key with their private key
-3. Client decrypts note data with symmetric key
-
-## Validation:
-
-The API validates that all sensitive data is properly base64 encoded. Unencrypted plain text will be rejected.
+## Security:
+- JWT-based authentication
+- Password hashing with bcrypt
+- Rate limiting
+- Input validation
             `.trim(),
             contact: {
                 name: "API Support",
@@ -88,11 +68,6 @@ The API validates that all sensitive data is properly base64 encoded. Unencrypte
                             type: "boolean",
                             description: "Email verification status",
                         },
-                        publicKey: {
-                            type: "string",
-                            nullable: true,
-                            description: "User's public key for E2EE",
-                        },
                         createdAt: {
                             type: "string",
                             format: "date-time",
@@ -110,24 +85,19 @@ The API validates that all sensitive data is properly base64 encoded. Unencrypte
                         },
                         name: {
                             type: "string",
-                            format: "base64",
-                            description:
-                                "**ENCRYPTED** - Category name (base64 encoded encrypted data)",
-                            example: "RW5jcnlwdGVkQ2F0ZWdvcnlOYW1l",
+                            description: "Category name",
+                            example: "Work",
                         },
                         description: {
                             type: "string",
-                            format: "base64",
                             nullable: true,
-                            description:
-                                "**ENCRYPTED** - Category description (base64 encoded encrypted data)",
-                            example: "RW5jcnlwdGVkRGVzY3JpcHRpb24=",
+                            description: "Category description",
+                            example: "Work-related notes",
                         },
                         color: {
                             type: "string",
                             default: "#6B73FF",
-                            description:
-                                "Category color in hex format (not encrypted)",
+                            description: "Category color in hex format",
                         },
                         userId: {
                             type: "string",
@@ -153,17 +123,13 @@ The API validates that all sensitive data is properly base64 encoded. Unencrypte
                         },
                         title: {
                             type: "string",
-                            format: "base64",
-                            description:
-                                "**ENCRYPTED** - Note title (base64 encoded encrypted data)",
-                            example: "VGhpcyBpcyBhbiBlbmNyeXB0ZWQgdGl0bGU=",
+                            description: "Note title",
+                            example: "My First Note",
                         },
                         content: {
                             type: "string",
-                            format: "base64",
-                            description:
-                                "**ENCRYPTED** - Note content (base64 encoded encrypted data)",
-                            example: "VGhpcyBpcyBlbmNyeXB0ZWQgbm90ZSBjb250ZW50",
+                            description: "Note content",
+                            example: "This is the content of my note.",
                         },
                         categoryId: {
                             type: "string",
@@ -183,24 +149,10 @@ The API validates that all sensitive data is properly base64 encoded. Unencrypte
                             type: "array",
                             items: {
                                 type: "string",
-                                format: "base64",
-                                description:
-                                    "**ENCRYPTED** - Individual tag (base64 encoded encrypted data)",
+                                description: "Note tag",
                             },
-                            description:
-                                "**ENCRYPTED** - Note tags (array of base64 encoded encrypted strings)",
-                            example: [
-                                "RW5jcnlwdGVkVGFnMQ==",
-                                "RW5jcnlwdGVkVGFnMg==",
-                            ],
-                        },
-                        encryptedKey: {
-                            type: "string",
-                            format: "base64",
-                            nullable: true,
-                            description:
-                                "Symmetric key encrypted with user's public key (base64)",
-                            example: "RW5jcnlwdGVkU3ltbWV0cmljS2V5",
+                            description: "Note tags",
+                            example: ["work", "important"],
                         },
                         userId: {
                             type: "string",
@@ -262,10 +214,10 @@ The API validates that all sensitive data is properly base64 encoded. Unencrypte
         ],
     },
     apis: [
-        "./src/routes/*.js", // Top-level route files
-        "./src/routes/**/*.js", // All subdirectory route files
-        "./src/routes/auth/*.js", // Specific auth routes
-        "./src/routes/auth/**/*.js", // Auth subdirectory routes
+        "./src/routes/*.js",
+        "./src/routes/**/*.js",
+        "./src/routes/auth/*.js",
+        "./src/routes/auth/**/*.js",
     ],
 };
 

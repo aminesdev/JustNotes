@@ -15,6 +15,7 @@ import Register from './pages/Register';
 import Notes from './pages/Notes';
 import Categories from './pages/Categories';
 import Profile from './pages/Profile';
+import NoteEditorPage from './pages/NoteEditor';
 
 const LoadingSpinner = () => (
     <div className="min-h-screen flex items-center justify-center">
@@ -29,7 +30,11 @@ const ProtectedRoute = ({children}) => {
         return <LoadingSpinner />;
     }
 
-    return accessToken && user ? children : <Navigate to="/login" replace />;
+    if (!accessToken || !user) {
+        return <Navigate to="/login" replace />;
+    }
+
+    return children;
 };
 
 const PublicRoute = ({children}) => {
@@ -39,13 +44,18 @@ const PublicRoute = ({children}) => {
         return <LoadingSpinner />;
     }
 
-    return !(accessToken && user) ? children : <Navigate to="/notes" replace />;
+    if (accessToken && user) {
+        return <Navigate to="/notes" replace />;
+    }
+
+    return children;
 };
 
 function App() {
     const {initialize, isInitialized} = useAuthStore();
 
     useEffect(() => {
+        console.log("App initializing...");
         initialize();
     }, [initialize]);
 
@@ -97,6 +107,8 @@ function App() {
                         <Layout>
                             <Routes>
                                 <Route path="/notes" element={<Notes />} />
+                                <Route path="/notes/new" element={<NoteEditorPage />} />
+                                <Route path="/notes/:id" element={<NoteEditorPage />} />
                                 <Route path="/categories" element={<Categories />} />
                                 <Route path="/profile" element={<Profile />} />
                                 <Route path="/" element={<Navigate to="/notes" replace />} />
@@ -113,293 +125,45 @@ function App() {
 export default App;
 ```
 
-## File: components/auth/EncryptionSetup.jsx
+## File: components/common/ErrorBoundary.jsx
 ```jsx
-import React, {useState, useEffect} from 'react';
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {Alert, AlertDescription} from '@/components/ui/alert';
-import {EncryptionService} from '../../utils/encryption';
-import {authService} from '../../services/authService';
-import {useAuthStore} from '../../stores/authStore';
+import React from 'react';
 
-const EncryptionSetup = () => {
-    const [step, setStep] = useState(1);
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [hasEncryption, setHasEncryption] = useState(false);
-
-    const {user, setUser} = useAuthStore();
-
-    // Check if encryption is already setup
-    useEffect(() => {
-        if (user?.publicKey && user?.encryptedPrivateKey) {
-            setHasEncryption(true);
-        } else {
-            setHasEncryption(false);
-        }
-    }, [user]);
-
-    const handleSetupEncryption = async () => {
-        // Clear previous errors
-        setError('');
-
-        // Validate passwords
-        if (!password || !confirmPassword) {
-            setError('Please fill in both password fields');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters long');
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            console.log('Starting encryption setup...');
-
-            // Generate key pair
-            const keyPair = EncryptionService.generateKeyPair();
-            console.log('Key pair generated:', {
-                publicKey: keyPair.publicKey,
-                hasPrivateKey: !!keyPair.privateKey
-            });
-
-            // Encrypt private key
-            const encryptedPrivateKey = EncryptionService.encryptPrivateKey(
-                keyPair.privateKey,
-                password
-            );
-            console.log('Private key encrypted, length:', encryptedPrivateKey.length);
-
-            const payload = {
-                publicKey: keyPair.publicKey,
-                encryptedPrivateKey: encryptedPrivateKey
-            };
-            console.log('Sending payload to API:', payload);
-
-            // Call API
-            const response = await authService.setupEncryption(payload);
-            console.log('API response:', response);
-
-            // Update user in store and localStorage
-            const updatedUser = {
-                ...user,
-                publicKey: keyPair.publicKey,
-                encryptedPrivateKey: encryptedPrivateKey
-            };
-
-            setUser(updatedUser);
-
-            // Also update localStorage directly to ensure persistence
-            const userData = localStorage.getItem('userData');
-            if (userData) {
-                const parsedUser = JSON.parse(userData);
-                const updatedUserData = {
-                    ...parsedUser,
-                    publicKey: keyPair.publicKey,
-                    encryptedPrivateKey: encryptedPrivateKey
-                };
-                localStorage.setItem('userData', JSON.stringify(updatedUserData));
-            }
-
-            setSuccess('Encryption setup completed successfully');
-            setHasEncryption(true);
-            setPassword('');
-            setConfirmPassword('');
-            setStep(3);
-        } catch (error) {
-            console.error('Encryption setup error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                response: error.response?.data,
-                status: error.response?.status
-            });
-
-            // More detailed error messages
-            let errorMessage = 'Failed to setup encryption';
-
-            if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.response?.data?.msg) {
-                errorMessage = error.response.data.msg;
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            // Check for specific error types
-            if (error.response?.status === 401) {
-                errorMessage = 'Authentication required. Please login again.';
-            } else if (error.response?.status === 404) {
-                errorMessage = 'Encryption endpoint not found. Please contact support.';
-            } else if (error.message?.includes('Network')) {
-                errorMessage = 'Network error. Please check your connection.';
-            }
-
-            setError(errorMessage);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Clear error when user starts typing
-    const handlePasswordChange = (e) => {
-        setPassword(e.target.value);
-        if (error) setError('');
-    };
-
-    const handleConfirmPasswordChange = (e) => {
-        setConfirmPassword(e.target.value);
-        if (error) setError('');
-    };
-
-    // If encryption is already setup, show status
-    if (hasEncryption) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Encryption Status</CardTitle>
-                    <CardDescription>
-                        Your encryption is properly configured and securing your data
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Alert className="bg-green-50 border-green-200">
-                        <AlertDescription className="text-green-800">
-                            Encryption is enabled and protecting your data
-                        </AlertDescription>
-                    </Alert>
-                </CardContent>
-            </Card>
-        );
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {hasError: false};
     }
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Setup Encryption</CardTitle>
-                <CardDescription>
-                    End-to-end encryption is required to protect your notes
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {error && (
-                    <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                )}
+    static getDerivedStateFromError(error) {
+        return {hasError: true};
+    }
 
-                {success && (
-                    <Alert>
-                        <AlertDescription>{success}</AlertDescription>
-                    </Alert>
-                )}
+    componentDidCatch(error, errorInfo) {
+        console.error('Error caught by boundary:', error, errorInfo);
+    }
 
-                {step === 1 && (
-                    <div className="space-y-4">
-                        <Alert>
-                            <AlertDescription>
-                                <strong>Important:</strong> Your notes are encrypted on your device before being sent to the server.
-                                You must remember your password to decrypt your data. We cannot recover your data if you forget your password.
-                                <br /><br />
-                                <strong>This is a one-time setup.</strong>
-                            </AlertDescription>
-                        </Alert>
-                        <Button onClick={() => setStep(2)} className="w-full">
-                            Start Setup
-                        </Button>
-                    </div>
-                )}
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                    <h2 className="text-lg font-semibold text-red-800">Something went wrong</h2>
+                    <p className="text-red-600">Please refresh the page and try again.</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                        Refresh Page
+                    </button>
+                </div>
+            );
+        }
 
-                {step === 2 && (
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="password">Encryption Password *</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="Enter a strong password (minimum 8 characters)"
-                                value={password}
-                                onChange={handlePasswordChange}
-                                required
-                                disabled={isLoading}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                This password will be used to encrypt/decrypt your notes locally.
-                            </p>
-                        </div>
+        return this.props.children;
+    }
+}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm Password *</Label>
-                            <Input
-                                id="confirmPassword"
-                                type="password"
-                                placeholder="Confirm your password"
-                                value={confirmPassword}
-                                onChange={handleConfirmPasswordChange}
-                                required
-                                disabled={isLoading}
-                            />
-                        </div>
-
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={handleSetupEncryption}
-                                disabled={isLoading || !password || !confirmPassword}
-                                className="flex-1"
-                            >
-                                {isLoading ? 'Setting up...' : 'Complete Setup'}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setStep(1);
-                                    setPassword('');
-                                    setConfirmPassword('');
-                                    setError('');
-                                }}
-                                disabled={isLoading}
-                            >
-                                Back
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 3 && (
-                    <div className="space-y-4">
-                        <Alert className="bg-green-50 border-green-200">
-                            <AlertDescription className="text-green-800">
-                                Encryption setup completed successfully! You can now create encrypted notes.
-                            </AlertDescription>
-                        </Alert>
-                        <Button
-                            onClick={() => setHasEncryption(true)}
-                            variant="outline"
-                            className="w-full"
-                        >
-                            Continue
-                        </Button>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
-};
-
-export default EncryptionSetup;
+export default ErrorBoundary;
 ```
 
 ## File: components/common/Modal.jsx
@@ -515,7 +279,7 @@ const Header = () => {
                         <MenuIcon />
                     </Button>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-semibold hidden sm:block">LockNote</h1>
+                        <h1 className="text-xl font-semibold hidden sm:block">JustNotes</h1>
                     </div>
                 </div>
 
@@ -552,14 +316,14 @@ const Header = () => {
                         variant="ghost"
                         size="icon"
                         onClick={toggleTheme}
-                        className="flex-shrink-0"
+                        className="flex-shrink-0 mr-2" 
                     >
                         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
                     </Button>
 
                     {user && (
                         <div className="flex items-center gap-3">
-                            <span className="text-sm text-muted-foreground hidden sm:block">
+                            <span className="text-sm text-muted-foreground hidden sm:block mr-2"> {/* Added margin */}
                                 {user.email}
                             </span>
                             <Button variant="outline" size="sm" onClick={logout} className="flex-shrink-0">
@@ -681,7 +445,7 @@ const Sidebar = () => {
         <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-background border-r transform transition-transform duration-300 ease-in-out md:translate-x-0 -translate-x-full">
             <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-lg font-semibold">LockNote</h2>
+                    <h2 className="text-lg font-semibold">JustNotes</h2>
                     {currentCategoryFilter && (
                         <Button
                             variant="ghost"
@@ -707,7 +471,7 @@ const Sidebar = () => {
                             <Button
                                 variant={isActive(item.href) ? "secondary" : "ghost"}
                                 className={cn(
-                                    "w-full justify-start gap-3",
+                                    "w-full justify-start gap-3 mb-1 mt-1",
                                     isActive(item.href) && "bg-secondary"
                                 )}
                             >
@@ -718,43 +482,46 @@ const Sidebar = () => {
                     ))}
 
                     {/* Categories Section */}
-                    {categories.length > 0 && (
-                        <div className="pt-6">
-                            <div className="flex items-center justify-between px-3 mb-2">
-                                <h3 className="text-sm font-medium text-muted-foreground">Categories</h3>
-                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    {categories.length}
-                                </span>
-                            </div>
-                            <div className="space-y-1">
-                                {categories.slice(0, 8).map((category) => (
-                                    <Button
-                                        key={category.id}
-                                        variant={currentCategoryFilter === category.id ? "secondary" : "ghost"}
-                                        className={cn(
-                                            "w-full justify-start gap-2 text-sm",
-                                            currentCategoryFilter === category.id && "bg-secondary"
-                                        )}
-                                        onClick={() => handleCategoryClick(category)}
-                                    >
-                                        <div
-                                            className="w-2 h-2 rounded-full flex-shrink-0"
-                                            style={{backgroundColor: category.color || '#6B73FF'}}
-                                        />
-                                        <span className="truncate flex-1 text-left">{category.name}</span>
-                                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                            {category.noteCount || category._count?.notes || 0}
-                                        </span>
-                                    </Button>
-                                ))}
-                                {categories.length > 8 && (
-                                    <Button variant="ghost" className="w-full justify-start text-sm text-muted-foreground">
-                                        +{categories.length - 8} more
-                                    </Button>
-                                )}
-                            </div>
+                    <div className="pt-6">
+                        <div className="flex items-center justify-between px-3 mb-2">
+                            <h3 className="text-sm font-medium text-muted-foreground">Categories</h3>
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                {categories.length}
+                            </span>
                         </div>
-                    )}
+                        <div className="space-y-1 max-h-60 overflow-y-auto">
+                            {categories.slice(0, 10).map((category) => (
+                                <Button
+                                    key={category.id}
+                                    variant={currentCategoryFilter === category.id ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "w-full justify-start gap-3 text-sm h-8 ",
+                                        currentCategoryFilter === category.id && "bg-secondary"
+                                    )}
+                                    onClick={() => handleCategoryClick(category)}
+                                >
+                                    <div
+                                        className="w-2 h-2 rounded-full flex-shrink-0"
+                                        style={{backgroundColor: category.color || '#6B73FF'}}
+                                    />
+                                    <span className="truncate flex-1 text-left">{category.name}</span>
+                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                        {category.noteCount || category._count?.notes || 0}
+                                    </span>
+                                </Button>
+                            ))}
+                            {categories.length > 10 && (
+                                <Button variant="ghost" className="w-full justify-center text-sm text-muted-foreground h-8">
+                                    +{categories.length - 10} more
+                                </Button>
+                            )}
+                            {categories.length === 0 && (
+                                <p className="text-xs text-muted-foreground px-3 py-2 text-center">
+                                    No categories yet
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </nav>
             </div>
         </aside>
@@ -786,6 +553,7 @@ export default Sidebar;
 ## File: components/notes/NoteCard.jsx
 ```jsx
 import React from 'react';
+import {useNavigate} from 'react-router-dom';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
@@ -793,19 +561,22 @@ import {useNotesStore} from '../../stores/notesStore';
 import {formatDate, truncateText} from '../../utils/helpers';
 
 const NoteCard = ({note}) => {
-    const {setCurrentNote, deleteNote, updateNote} = useNotesStore();
+    const navigate = useNavigate();
+    const {deleteNote, updateNote} = useNotesStore();
 
     const handleEdit = () => {
-        setCurrentNote(note);
+        navigate(`/notes/${note.id}`);
     };
 
-    const handleDelete = async () => {
+    const handleDelete = async (e) => {
+        e.stopPropagation();
         if (window.confirm('Are you sure you want to delete this note?')) {
             await deleteNote(note.id);
         }
     };
 
-    const handleTogglePin = async () => {
+    const handleTogglePin = async (e) => {
+        e.stopPropagation();
         try {
             await updateNote(note.id, {
                 ...note,
@@ -817,8 +588,11 @@ const NoteCard = ({note}) => {
     };
 
     return (
-        <Card className="group hover:shadow-md transition-all duration-200 border-l-4"
-            style={{borderLeftColor: note.category?.color || '#6B73FF'}}>
+        <Card
+            className="group hover:shadow-md transition-all duration-200 border-l-4 cursor-pointer"
+            style={{borderLeftColor: note.category?.color || 'hsl(var(--foreground))'}}
+            onClick={handleEdit}
+        >
             <CardHeader className="pb-3">
                 <div className="flex justify-between items-start gap-2">
                     <CardTitle className="text-lg line-clamp-2 leading-tight flex-1">
@@ -829,18 +603,10 @@ const NoteCard = ({note}) => {
                             variant="ghost"
                             size="icon"
                             onClick={handleTogglePin}
-                            className="h-8 w-8"
+                            className={`h-8 w-8 ${note.isPinned ? 'text-primary' : ''}`}
                             title={note.isPinned ? "Unpin note" : "Pin note"}
                         >
-                            {note.isPinned ? <PinnedIcon /> : <UnpinnedIcon />}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleEdit}
-                            className="h-8 w-8"
-                        >
-                            <EditIcon />
+                            <PinIcon />
                         </Button>
                         <Button
                             variant="ghost"
@@ -854,11 +620,6 @@ const NoteCard = ({note}) => {
                 </div>
                 <CardDescription className="flex justify-between items-center">
                     <span>{formatDate(note.createdAt)}</span>
-                    {note.isPinned && (
-                        <Badge variant="secondary" className="text-xs">
-                            Pinned
-                        </Badge>
-                    )}
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -895,99 +656,47 @@ const NoteCard = ({note}) => {
     );
 };
 
-const EditIcon = () => (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-    </svg>
-);
-
+// Icons remain the same...
 const DeleteIcon = () => (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
 );
 
-const PinnedIcon = () => (
+const PinIcon = () => (
     <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
         <path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z" />
     </svg>
 );
 
-const UnpinnedIcon = () => (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-    </svg>
-);
 
 export default NoteCard;
 ```
 
 ## File: components/notes/NoteEditor.jsx
 ```jsx
-import React, {useState, useEffect} from 'react';
-import Modal from '../common/Modal';
-import NoteForm from './NoteForm';
-import {useNotesStore} from '../../stores/notesStore';
-import {useAuthStore} from '../../stores/authStore';
+import React from 'react';
+import {useNavigate} from 'react-router-dom';
 import {Button} from '@/components/ui/button';
 
 const NoteEditor = () => {
-    const [isOpen, setIsOpen] = useState(false);
-    const {currentNote, createNote, updateNote, clearCurrentNote, fetchNotes} = useNotesStore();
-    const {user} = useAuthStore();
+    const navigate = useNavigate();
 
-    useEffect(() => {if (currentNote) setIsOpen(true);}, [currentNote]);
-
-    const handleClose = () => {setIsOpen(false); clearCurrentNote();};
-
-    const handleSave = async (noteData) => {
-        try {
-            if (currentNote) await updateNote(currentNote.id, noteData);
-            else await createNote(noteData);
-            await fetchNotes();
-            handleClose();
-        } catch (err) {
-            alert('Failed to save note: ' + (err.response?.data?.message || err.message));
-        }
+    const handleNewNote = () => {
+        navigate('/notes/new');
     };
 
-    const canCreateNote = user?.publicKey && user?.encryptedPrivateKey;
-
     return (
-        <>
-            <Button onClick={() => setIsOpen(true)} disabled={!canCreateNote}>
-                New Note
-            </Button>
-            <Modal
-                isOpen={isOpen || !!currentNote}
-                onClose={handleClose}
-                title={currentNote ? 'Edit Note' : 'Create New Note'}
-                description={
-                    !canCreateNote
-                        ? "Encryption not setup. Please configure encryption in your profile to create notes."
-                        : currentNote
-                            ? "Edit your encrypted note."
-                            : "Create a new encrypted note. All data is encrypted before saving."
-                }
-                size="lg"
-            >
-                {canCreateNote ? (
-                    <NoteForm note={currentNote} onSave={handleSave} onCancel={handleClose} />
-                ) : (
-                    <div className="text-center py-6">
-                        <p className="text-muted-foreground mb-4">
-                            Encryption setup required to create notes.
-                        </p>
-                        <Button asChild><a href="/profile">Setup Encryption</a></Button>
-                    </div>
-                )}
-            </Modal>
-        </>
+        <Button
+            onClick={handleNewNote}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+            New Note
+        </Button>
     );
 };
 
 export default NoteEditor;
-
 ```
 
 ## File: components/notes/NoteForm.jsx
@@ -1000,8 +709,6 @@ import {Label} from '@/components/ui/label';
 import {Switch} from '@/components/ui/switch';
 import {useNotesStore} from '../../stores/notesStore';
 import {useCategoriesStore} from '../../stores/categoriesStore';
-import {useAuthStore} from '../../stores/authStore';
-import {EncryptionService} from '../../utils/encryption';
 
 const NoteForm = ({note, onSave, onCancel}) => {
     const [formData, setFormData] = useState({
@@ -1016,7 +723,6 @@ const NoteForm = ({note, onSave, onCancel}) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {categories, fetchCategories} = useCategoriesStore();
-    const {user} = useAuthStore();
 
     useEffect(() => {
         fetchCategories().catch(err => console.error('Failed to fetch categories:', err));
@@ -1052,20 +758,8 @@ const NoteForm = ({note, onSave, onCancel}) => {
 
         setIsSubmitting(true);
         try {
-            if (!user?.publicKey) {
-                throw new Error('Encryption not set up. Please setup encryption first.');
-            }
-
-            const encryptedData = EncryptionService.prepareNoteData({
-                title: formData.title,
-                content: formData.content,
-                tags: formData.tags || [],
-                categoryId: formData.categoryId || null,
-                isPinned: formData.isPinned || false
-            }, user.publicKey);
-
-            console.log('Sending note data:', encryptedData);
-            await onSave(encryptedData);
+            console.log('Sending note data:', formData);
+            await onSave(formData);
         } catch (error) {
             console.error('Save error:', error);
             setErrors({submit: error.message || 'Failed to save note'});
@@ -1185,7 +879,6 @@ const NoteForm = ({note, onSave, onCancel}) => {
 };
 
 export default NoteForm;
-
 ```
 
 ## File: components/notes/NoteList.jsx
@@ -1194,9 +887,10 @@ import React from 'react';
 import {useNotesStore} from '../../stores/notesStore';
 import NoteCard from './NoteCard';
 import {Button} from '@/components/ui/button';
-import NoteEditor from './NoteEditor';
+import {useNavigate} from 'react-router-dom';
 
 const NoteList = () => {
+    const navigate = useNavigate();
     const {
         notes,
         isLoading,
@@ -1205,6 +899,12 @@ const NoteList = () => {
     } = useNotesStore();
 
     const filteredNotes = getFilteredNotes();
+    const pinnedNotes = filteredNotes.filter(note => note.isPinned);
+    const unpinnedNotes = filteredNotes.filter(note => !note.isPinned);
+
+    const handleNewNote = () => {
+        navigate('/notes/new');
+    };
 
     if (isLoading) {
         return (
@@ -1227,20 +927,54 @@ const NoteList = () => {
                             : 'Get started by creating your first note'
                         }
                     </p>
-                    <NoteEditor />
+                    <Button onClick={handleNewNote}>
+                        New Note
+                    </Button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredNotes.map((note) => (
-                <NoteCard key={note.id} note={note} />
-            ))}
+        <div className="space-y-8">
+            {/* Pinned Notes Section */}
+            {pinnedNotes.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <PinIcon className="h-5 w-5" />
+                        <h2 className="text-xl font-semibold">Pinned</h2>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {pinnedNotes.map((note) => (
+                            <NoteCard key={note.id} note={note} />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Regular Notes Section */}
+            {unpinnedNotes.length > 0 && (
+                <div className="space-y-4">
+                    {pinnedNotes.length > 0 && (
+                        <h2 className="text-xl font-semibold">All Notes</h2>
+                    )}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {unpinnedNotes.map((note) => (
+                            <NoteCard key={note.id} note={note} />
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+
+// Pin icon component
+const PinIcon = ({className}) => (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z" />
+    </svg>
+);
 
 export default NoteList;
 ```
@@ -1809,10 +1543,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-        <App />
+        <ErrorBoundary>
+            <App />
+        </ErrorBoundary>
     </React.StrictMode>,
 );
 ```
@@ -1835,11 +1572,15 @@ const Categories = () => {
         validationErrors,
         fetchCategories,
         createCategory,
+        updateCategory,
+        deleteCategory,
         clearError,
         clearValidationErrors
     } = useCategoriesStore();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
     const [newCategory, setNewCategory] = useState({
         name: '',
         description: '',
@@ -1866,11 +1607,7 @@ const Categories = () => {
         } else if (newCategory.name.length > 100) {
             errors.name = 'Category name must be less than 100 characters';
         }
-
-        if (newCategory.description && newCategory.description.length > 500) {
-            errors.description = 'Description must be less than 500 characters';
-        }
-
+        
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -1908,8 +1645,74 @@ const Categories = () => {
         }
     };
 
+    const handleEditCategory = (category) => {
+        setEditingCategory(category);
+        setNewCategory({
+            name: category.name,
+            description: category.description || '',
+            color: category.color || '#6B73FF'
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleUpdateCategory = async (e) => {
+        e.preventDefault();
+        setCreateError('');
+        setFormErrors({});
+        clearError();
+        clearValidationErrors();
+
+        if (!validateForm()) {
+            return;
+        }
+
+        setCreateLoading(true);
+
+        try {
+            const categoryData = {
+                name: newCategory.name.trim(),
+                description: newCategory.description.trim() || null,
+                color: newCategory.color || '#6B73FF'
+            };
+
+            await updateCategory(editingCategory.id, categoryData);
+
+            setNewCategory({name: '', description: '', color: '#6B73FF'});
+            setEditingCategory(null);
+            setIsEditModalOpen(false);
+            await fetchCategories();
+        } catch (error) {
+            console.error('Category update error:', error);
+            setCreateError(error.message || 'Failed to update category');
+        } finally {
+            setCreateLoading(false);
+        }
+    };
+
+    const handleDeleteCategory = async (category) => {
+        if (window.confirm(`Are you sure you want to delete the category "${category.name}"? This will not delete the notes in this category.`)) {
+            try {
+                await deleteCategory(category.id);
+                await fetchCategories();
+            } catch (error) {
+                console.error('Category deletion error:', error);
+                setCreateError(error.message || 'Failed to delete category');
+            }
+        }
+    };
+
     const handleModalClose = () => {
         setIsModalOpen(false);
+        setNewCategory({name: '', description: '', color: '#6B73FF'});
+        setCreateError('');
+        setFormErrors({});
+        clearError();
+        clearValidationErrors();
+    };
+
+    const handleEditModalClose = () => {
+        setIsEditModalOpen(false);
+        setEditingCategory(null);
         setNewCategory({name: '', description: '', color: '#6B73FF'});
         setCreateError('');
         setFormErrors({});
@@ -1949,17 +1752,16 @@ const Categories = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
             ) : categories.length > 0 ? (
-                // CHANGED: Using list view instead of cards
-                <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {categories.map((category) => (
-                            <CategoryListItem
-                                key={category.id}
-                                category={category}
-                                noteCount={getNoteCount(category)}
-                            />
-                        ))}
-                    </div>
+                <div className="space-y-4">
+                    {categories.map((category) => (
+                        <CategoryListItem
+                            key={category.id}
+                            category={category}
+                            noteCount={getNoteCount(category)}
+                            onEdit={handleEditCategory}
+                            onDelete={handleDeleteCategory}
+                        />
+                    ))}
                 </div>
             ) : (
                 <Card>
@@ -1980,6 +1782,7 @@ const Categories = () => {
                 </Card>
             )}
 
+            {/* Create Category Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleModalClose}
@@ -2000,8 +1803,13 @@ const Categories = () => {
                         <Alert variant="destructive">
                             <AlertDescription>
                                 <ul className="list-disc list-inside space-y-1">
-                                    {Object.entries(validationErrors).map(([field, message]) => (
-                                        <li key={field}>{message}</li>
+                                    {Object.entries(validationErrors).map(([field, error]) => (
+                                        <li key={field}>
+                                            {typeof error === 'string'
+                                                ? error
+                                                : error.msg || JSON.stringify(error)
+                                            }
+                                        </li>
                                     ))}
                                 </ul>
                             </AlertDescription>
@@ -2098,40 +1906,181 @@ const Categories = () => {
                     </div>
                 </form>
             </Modal>
+
+            {/* Edit Category Modal */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={handleEditModalClose}
+                title="Edit Category"
+                description="Update your category details"
+                size="md"
+            >
+                <form onSubmit={handleUpdateCategory} className="space-y-4">
+                    {createError && (
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                {typeof createError === 'string' ? createError : 'Failed to update category'}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {Object.keys(validationErrors).length > 0 && (
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                <ul className="list-disc list-inside space-y-1">
+                                    {Object.entries(validationErrors).map(([field, message]) => (
+                                        <li key={field}>{message}</li>
+                                    ))}
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Category Name *</label>
+                        <Input
+                            placeholder="Enter category name"
+                            value={newCategory.name}
+                            onChange={(e) => {
+                                setNewCategory(prev => ({...prev, name: e.target.value}));
+                                if (formErrors.name) {
+                                    setFormErrors(prev => ({...prev, name: ''}));
+                                }
+                            }}
+                            required
+                            disabled={createLoading}
+                            className={getFieldError('name') ? 'border-red-500' : ''}
+                        />
+                        {getFieldError('name') && (
+                            <p className="text-sm text-red-600">{getFieldError('name')}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Description (Optional)</label>
+                        <Input
+                            placeholder="Enter description"
+                            value={newCategory.description}
+                            onChange={(e) => {
+                                setNewCategory(prev => ({...prev, description: e.target.value}));
+                                if (formErrors.description) {
+                                    setFormErrors(prev => ({...prev, description: ''}));
+                                }
+                            }}
+                            disabled={createLoading}
+                            className={getFieldError('description') ? 'border-red-500' : ''}
+                        />
+                        {getFieldError('description') && (
+                            <p className="text-sm text-red-600">{getFieldError('description')}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Color</label>
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <input
+                                    type="color"
+                                    value={newCategory.color}
+                                    onChange={handleColorChange}
+                                    className="w-12 h-12 rounded cursor-pointer border-2 border-gray-300"
+                                    disabled={createLoading}
+                                    style={{
+                                        backgroundColor: newCategory.color,
+                                    }}
+                                />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-sm text-muted-foreground font-mono bg-gray-100 px-2 py-1 rounded">
+                                    {newCategory.color}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setNewCategory(prev => ({...prev, color: '#6B73FF'}))}
+                                    className="mt-1 text-xs"
+                                >
+                                    Reset to default
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                        <Button
+                            type="submit"
+                            className="flex-1"
+                            disabled={createLoading}
+                        >
+                            {createLoading ? 'Updating...' : 'Update Category'}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleEditModalClose}
+                            disabled={createLoading}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };
 
-// NEW: List item component for categories
-const CategoryListItem = ({category, noteCount}) => {
+// Category List Item Component
+const CategoryListItem = ({category, noteCount, onEdit, onDelete}) => {
     return (
-        <div className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <div className="flex items-center gap-4 flex-1">
-                <div
-                    className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200"
-                    style={{backgroundColor: category.color || '#6B73FF'}}
-                />
-                <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
-                        {category.name}
-                    </h3>
-                    {category.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                            {category.description}
-                        </p>
-                    )}
-                </div>
-            </div>
+        <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                        <div
+                            className="w-4 h-4 rounded-full flex-shrink-0 border"
+                            style={{backgroundColor: category.color || '#6B73FF'}}
+                        />
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold truncate">{category.name}</h3>
+                            {category.description && (
+                                <p className="text-sm text-muted-foreground truncate">
+                                    {category.description}
+                                </p>
+                            )}
+                        </div>
+                    </div>
 
-            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
-                <span className="whitespace-nowrap">
-                    {noteCount} {noteCount === 1 ? 'note' : 'notes'}
-                </span>
-                <span className="whitespace-nowrap">
-                    {category.createdAt ? new Date(category.createdAt).toLocaleDateString() : 'N/A'}
-                </span>
-            </div>
-        </div>
+                    <div className="flex items-center gap-4 ml-4">
+                        <div className="text-sm text-muted-foreground text-right">
+                            <div>{noteCount} {noteCount === 1 ? 'note' : 'notes'}</div>
+                            <div className="text-xs">
+                                {category.createdAt ? new Date(category.createdAt).toLocaleDateString() : 'N/A'}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onEdit(category)}
+                                className="h-8"
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => onDelete(category)}
+                                className="h-8 bg-red-500"
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 
@@ -2274,8 +2223,7 @@ const ConfirmCode = () => {
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>
@@ -2381,8 +2329,7 @@ const ForgotPassword = () => {
             <div className="max-w-md w-full space-y-8">
                 {/* App Logo/Title */}
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>
@@ -2503,8 +2450,7 @@ const Login = () => {
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>
@@ -2582,9 +2528,260 @@ const Login = () => {
 export default Login;
 ```
 
+## File: pages/NoteEditor.jsx
+```jsx
+import React, {useState, useEffect, useRef} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
+import {Button} from '@/components/ui/button';
+import {useNotesStore} from '../stores/notesStore';
+import {useCategoriesStore} from '../stores/categoriesStore';
+import {Badge} from '@/components/ui/badge';
+
+const NoteEditorPage = () => {
+    const {id} = useParams();
+    const navigate = useNavigate();
+    const contentRef = useRef(null);
+
+    const [title, setTitle] = useState('');
+    const [content, setContent] = useState('');
+    const [tags, setTags] = useState([]);
+    const [categoryId, setCategoryId] = useState('');
+    const [isPinned, setIsPinned] = useState(false);
+    const [tagInput, setTagInput] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [lastSaved, setLastSaved] = useState(null);
+    const [error, setError] = useState('');
+
+    const {createNote, updateNote, notes} = useNotesStore();
+    const {categories} = useCategoriesStore();
+
+    // Load existing note if editing
+    useEffect(() => {
+        if (id) {
+            const note = notes.find(n => n.id === id);
+            if (note) {
+                setTitle(note.title || '');
+                setContent(note.content || '');
+                setTags(note.tags || []);
+                setCategoryId(note.categoryId || '');
+                setIsPinned(note.isPinned || false);
+            }
+        }
+    }, [id, notes]);
+
+    // Auto-save functionality
+    useEffect(() => {
+        if (!title && !content) return;
+
+        const timeoutId = setTimeout(() => {
+            handleSave(true);
+        }, 2000);
+
+        return () => clearTimeout(timeoutId);
+    }, [title, content, tags, categoryId, isPinned]);
+
+    const handleSave = async (autoSave = false) => {
+        if (!title.trim() || !content.trim()) {
+            if (!autoSave) {
+                setError('Title and content are required');
+            }
+            return;
+        }
+
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const noteData = {
+                title: title.trim(),
+                content: content.trim(),
+                tags: tags,
+                categoryId: categoryId || null, // Ensure null instead of empty string
+                isPinned: isPinned
+            };
+
+            console.log('Saving note data:', noteData);
+
+            if (id) {
+                await updateNote(id, noteData);
+            } else {
+                const newNote = await createNote(noteData);
+                navigate(`/notes/${newNote.id}`, {replace: true});
+            }
+
+            setLastSaved(new Date());
+        } catch (error) {
+            console.error('Save error:', error);
+            setError(error.message || 'Failed to save note');
+            if (!autoSave) {
+                alert('Failed to save note: ' + error.message);
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleAddTag = (e) => {
+        if (e.key === 'Enter' && tagInput.trim()) {
+            e.preventDefault();
+            if (!tags.includes(tagInput.trim())) {
+                setTags([...tags, tagInput.trim()]);
+            }
+            setTagInput('');
+        }
+    };
+
+    const handleRemoveTag = (tagToRemove) => {
+        setTags(tags.filter(tag => tag !== tagToRemove));
+    };
+
+    const handleBack = () => {
+        if (title || content) {
+            if (window.confirm('You have unsaved changes. Save before leaving?')) {
+                handleSave();
+            }
+        }
+        navigate('/notes');
+    };
+
+    return (
+        <div className="min-h-screen bg-background">
+            {/* Header */}
+            <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+                <div className="flex items-center justify-between px-6 py-3">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="sm" onClick={handleBack}>
+                            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+                            Back
+                        </Button>
+
+                        {lastSaved && (
+                            <span className="text-xs text-muted-foreground">
+                                Saved {lastSaved.toLocaleTimeString()}
+                            </span>
+                        )}
+
+                        {error && (
+                            <span className="text-xs text-red-600">
+                                {error}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {/* Category Selector */}
+                        <select
+                            value={categoryId}
+                            onChange={(e) => setCategoryId(e.target.value)}
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                            <option value="">No category</option>
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </select>
+
+                        {/* Pin Button */}
+                        <Button
+                            variant={isPinned ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setIsPinned(!isPinned)}
+                            title={isPinned ? "Unpin note" : "Pin note"}
+                        >
+                            <PinIcon className="h-4 w-4" />
+                        </Button>
+
+                        {/* Save Button */}
+                        <Button
+                            onClick={() => handleSave(false)}
+                            disabled={isSaving || !title.trim() || !content.trim()}
+                            size="sm"
+                        >
+                            {isSaving ? 'Saving...' : 'Save'}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Editor Content */}
+            <div className="max-w-4xl mx-auto px-6 py-8">
+                {/* Title */}
+                <input
+                    type="text"
+                    placeholder="Untitled"
+                    value={title}
+                    onChange={(e) => {
+                        setTitle(e.target.value);
+                        setError('');
+                    }}
+                    className="w-full text-4xl font-bold border-none outline-none bg-transparent placeholder:text-muted-foreground mb-4"
+                    autoFocus
+                />
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                    {tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="cursor-pointer">
+                            {tag}
+                            <button
+                                onClick={() => handleRemoveTag(tag)}
+                                className="ml-2 hover:text-destructive"
+                            >
+                                ×
+                            </button>
+                        </Badge>
+                    ))}
+                    <input
+                        type="text"
+                        placeholder="Add tag..."
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleAddTag}
+                        className="h-6 px-2 text-sm border-none outline-none bg-transparent placeholder:text-muted-foreground"
+                    />
+                </div>
+
+                {/* Content */}
+                <textarea
+                    ref={contentRef}
+                    placeholder="Start writing..."
+                    value={content}
+                    onChange={(e) => {
+                        setContent(e.target.value);
+                        setError('');
+                    }}
+                    className="w-full min-h-[calc(100vh-300px)] text-base border-none outline-none bg-transparent placeholder:text-muted-foreground resize-none"
+                    style={{fontFamily: 'inherit'}}
+                />
+            </div>
+        </div>
+    );
+};
+
+const ArrowLeftIcon = ({className}) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+);
+
+const PinIcon = () => (
+    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z" />
+    </svg>
+);
+
+const UnpinnedIcon = () => (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+    </svg>
+);
+
+export default NoteEditorPage;
+```
+
 ## File: pages/Notes.jsx
 ```jsx
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import NoteList from '@/components/notes/NoteList';
 import NoteEditor from '@/components/notes/NoteEditor';
 import {useNotesStore} from '../stores/notesStore';
@@ -2598,26 +2795,33 @@ const Notes = () => {
     } = useNotesStore();
 
     const {categories, fetchCategories} = useCategoriesStore();
+    const [dataLoaded, setDataLoaded] = useState(false);
 
     // Load data on component mount
     useEffect(() => {
         const loadData = async () => {
-            await Promise.all([
-                fetchNotes(),
-                fetchCategories()
-            ]);
+            try {
+                await Promise.all([
+                    fetchNotes(),
+                    fetchCategories()
+                ]);
+                setDataLoaded(true);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                setDataLoaded(true); // Still set as loaded to show UI
+            }
         };
         loadData();
-    }, []); // Empty dependency array - run only once
+    }, [fetchNotes, fetchCategories]);
 
     // Reload when category filter changes
     useEffect(() => {
-        if (currentCategoryFilter) {
-            fetchNotes(true); // force refresh
+        if (currentCategoryFilter && dataLoaded) {
+            fetchNotes(true);
         }
-    }, [currentCategoryFilter]);
+    }, [currentCategoryFilter, dataLoaded]);
 
-    if (isLoading) {
+    if (isLoading && !dataLoaded) {
         return (
             <div className="flex justify-center items-center min-h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -2638,7 +2842,7 @@ const Notes = () => {
                     <p className="text-muted-foreground">
                         {currentCategoryFilter ?
                             `Notes in this category`
-                            : 'Manage your encrypted notes'
+                            : 'Manage your notes'
                         }
                     </p>
                 </div>
@@ -2659,14 +2863,12 @@ import React, {useEffect, useState} from 'react';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {useAuthStore} from '../stores/authStore';
-import EncryptionSetup from '../components/auth/EncryptionSetup';
 
 const Profile = () => {
     const {user, logout} = useAuthStore();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Simulate loading to ensure data is ready
         const timer = setTimeout(() => {
             setIsLoading(false);
         }, 500);
@@ -2698,8 +2900,6 @@ const Profile = () => {
                     Manage your account settings and preferences
                 </p>
             </div>
-
-            <EncryptionSetup />
 
             <Card>
                 <CardHeader>
@@ -2839,15 +3039,14 @@ const Register = () => {
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>
                     <CardHeader className="space-y-1">
                         <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
                         <CardDescription className="text-center">
-                            Sign up for your LockNote account
+                            Sign up for your JustNotes account
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -2998,8 +3197,7 @@ const ResetPassword = () => {
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>
@@ -3074,26 +3272,16 @@ const api = axios.create({
     timeout: 10000,
 });
 
+// Request interceptor to add auth token
 api.interceptors.request.use(
     (config) => {
-        // Try to get token from multiple sources
-        let token = localStorage.getItem("accessToken");
-
-        // If not found, try to get from Zustand persist storage
-        if (!token) {
-            try {
-                const authStorage = localStorage.getItem("auth-storage");
-                if (authStorage) {
-                    const parsed = JSON.parse(authStorage);
-                    token = parsed.state?.accessToken;
-                }
-            } catch (e) {
-                console.error("Error parsing auth storage:", e);
-            }
-        }
+        // Get token from localStorage
+        const token = localStorage.getItem("accessToken");
 
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+        } else {
+            console.warn("No access token found");
         }
 
         return config;
@@ -3103,31 +3291,57 @@ api.interceptors.request.use(
     }
 );
 
+// Response interceptor to handle errors
 api.interceptors.response.use(
     (response) => {
         return response;
     },
     async (error) => {
+        const originalRequest = error.config;
+
+        // Handle network errors
         if (!error.response) {
-            throw new Error(
+            console.error("Network error:", error);
+            const networkError = new Error(
                 "Cannot connect to server. Please check your connection."
             );
+            networkError.response = null;
+            return Promise.reject(networkError);
         }
 
-        if (error.response?.status === 401) {
-            // Clear all auth data
+        // Handle 401 Unauthorized
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            // Clear auth data
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
             localStorage.removeItem("userData");
             localStorage.removeItem("auth-storage");
+
+            // Redirect to login
+            if (!window.location.pathname.includes("/login")) {
+                window.location.href = "/login";
+            }
+
+            const authError = new Error("Session expired. Please login again.");
+            authError.response = error.response;
+            return Promise.reject(authError);
         }
 
+        // Preserve the original error with response data
         const errorMessage =
             error.response?.data?.message ||
             error.response?.data?.msg ||
             error.message ||
             "Request failed";
-        throw new Error(errorMessage);
+
+        // Create a new error but keep the response object
+        const enhancedError = new Error(errorMessage);
+        enhancedError.response = error.response;
+        enhancedError.config = error.config;
+
+        return Promise.reject(enhancedError);
     }
 );
 
@@ -3173,11 +3387,6 @@ export const authService = {
         return response.data;
     },
 
-    setupEncryption: async (keys) => {
-        const response = await api.post("/auth/encryption/setup", keys);
-        return response.data;
-    },
-
     logout: async () => {
         const refreshToken = localStorage.getItem("refreshToken");
         if (refreshToken) {
@@ -3200,47 +3409,96 @@ export const categoriesService = {
     getCategories: async () => {
         try {
             const response = await api.get("/categories");
-            return response.data;
+            const data = response.data?.data || response.data || [];
+            return Array.isArray(data) ? data : [];
         } catch (error) {
-            if (error.response?.status === 401) {
-                throw new Error("Authentication required. Please login again.");
-            }
-            if (error.response?.status === 404) {
-                return [];
-            }
+            console.error("Categories service - getCategories error:", {
+                message: error.message,
+                status: error.response?.status,
+                data: error.response?.data,
+                config: error.config,
+            });
             throw error;
         }
     },
 
     getCategoryById: async (id) => {
-        const response = await api.get(`/categories/${id}`);
-        return response.data;
+        try {
+            const response = await api.get(`/categories/${id}`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - getCategoryById error:", error);
+            throw error;
+        }
     },
 
     createCategory: async (categoryData) => {
-        const payload = {
-            name: categoryData.name.trim(),
-            description: categoryData.description?.trim() || null,
-            color: categoryData.color || "#6B73FF",
-        };
+        try {
+            // Match the exact API payload structure from your docs
+            const payload = {
+                name: categoryData.name?.trim() || "",
+                description: categoryData.description?.trim() || null,
+                color: categoryData.color || "#6B73FF",
+            };
 
-        const response = await api.post("/categories", payload);
-        return response.data;
+            console.log("Creating category with payload:", payload);
+
+            // Validate required fields
+            if (!payload.name) {
+                throw new Error("Category name is required");
+            }
+
+            const response = await api.post("/categories", payload);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - createCategory error:", error);
+            throw error;
+        }
     },
 
     updateCategory: async (id, categoryData) => {
-        const response = await api.put(`/categories/${id}`, categoryData);
-        return response.data;
+        try {
+            const payload = {
+                name: categoryData.name?.trim() || "",
+                description: categoryData.description?.trim() || null,
+                color: categoryData.color || "#6B73FF",
+            };
+
+            console.log("Updating category with payload:", payload);
+
+            if (!payload.name) {
+                throw new Error("Category name is required");
+            }
+
+            const response = await api.put(`/categories/${id}`, payload);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - updateCategory error:", error);
+            throw error;
+        }
     },
 
     deleteCategory: async (id) => {
-        const response = await api.delete(`/categories/${id}`);
-        return response.data;
+        try {
+            const response = await api.delete(`/categories/${id}`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - deleteCategory error:", error);
+            throw error;
+        }
     },
 
     getCategoryNotes: async (id) => {
-        const response = await api.get(`/categories/${id}/notes`);
-        return response.data;
+        try {
+            const response = await api.get(`/categories/${id}/notes`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error(
+                "Categories service - getCategoryNotes error:",
+                error
+            );
+            throw error;
+        }
     },
 };
 
@@ -3248,42 +3506,89 @@ export const categoriesService = {
 
 ## File: services/notesService.js
 ```js
-// services/notesService.js
 import api from "./api";
 
 export const notesService = {
     getNotes: async () => {
-        const response = await api.get("/notes");
-        return response.data;
+        try {
+            const response = await api.get("/notes");
+            return response.data?.data || response.data || [];
+        } catch (error) {
+            console.error("Notes service - getNotes error:", error);
+            throw error;
+        }
+    },
+
+    getNoteById: async (id) => {
+        try {
+            const response = await api.get(`/notes/${id}`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Notes service - getNoteById error:", error);
+            throw error;
+        }
     },
 
     createNote: async (noteData) => {
-        const payload = {
-            ...noteData,
-            categoryId: noteData.categoryId || null,
-            tags: noteData.tags || [],
-            isPinned: noteData.isPinned || false,
-        };
+        try {
+            // Match the exact API payload structure from your docs
+            const payload = {
+                title: noteData.title?.trim() || "",
+                content: noteData.content?.trim() || "",
+                categoryId: noteData.categoryId || null,
+                tags: Array.isArray(noteData.tags) ? noteData.tags : [],
+                isPinned: Boolean(noteData.isPinned),
+            };
 
-        const response = await api.post("/notes", payload);
-        return response.data;
+            console.log("Creating note with payload:", payload);
+
+            // Validate required fields
+            if (!payload.title || !payload.content) {
+                throw new Error("Title and content are required");
+            }
+
+            const response = await api.post("/notes", payload);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Notes service - createNote error:", error);
+            throw error;
+        }
     },
 
     updateNote: async (id, noteData) => {
-        const payload = {
-            ...noteData,
-            categoryId: noteData.categoryId || null,
-            tags: noteData.tags || [],
-            isPinned: noteData.isPinned || false,
-        };
+        try {
+            // Match the exact API payload structure from your docs
+            const payload = {
+                title: noteData.title?.trim() || "",
+                content: noteData.content?.trim() || "",
+                categoryId: noteData.categoryId || null,
+                tags: Array.isArray(noteData.tags) ? noteData.tags : [],
+                isPinned: Boolean(noteData.isPinned),
+            };
 
-        const response = await api.put(`/notes/${id}`, payload);
-        return response.data;
+            console.log("Updating note with payload:", payload);
+
+            // Validate required fields
+            if (!payload.title || !payload.content) {
+                throw new Error("Title and content are required");
+            }
+
+            const response = await api.put(`/notes/${id}`, payload);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Notes service - updateNote error:", error);
+            throw error;
+        }
     },
 
     deleteNote: async (id) => {
-        const response = await api.delete(`/notes/${id}`);
-        return response.data;
+        try {
+            const response = await api.delete(`/notes/${id}`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Notes service - deleteNote error:", error);
+            throw error;
+        }
     },
 };
 
@@ -3391,33 +3696,51 @@ export const useAuthStore = create(
             isInitialized: false,
 
             initialize: () => {
-                const token = localStorage.getItem("accessToken");
-                const userData = localStorage.getItem("userData");
+                try {
+                    const token = localStorage.getItem("accessToken");
+                    const userData = localStorage.getItem("userData");
+                    const refreshToken = localStorage.getItem("refreshToken");
 
-                if (token && userData) {
-                    try {
-                        const user = JSON.parse(userData);
-                        const refreshToken =
-                            localStorage.getItem("refreshToken");
+                    console.log("Auth initialization:", {
+                        hasToken: !!token,
+                        hasUserData: !!userData,
+                    });
 
-                        set({
-                            user,
-                            accessToken: token,
-                            refreshToken,
-                            isInitialized: true,
-                        });
-                    } catch {
-                        get().clearAuth();
+                    if (token && userData) {
+                        try {
+                            const user = JSON.parse(userData);
+                            set({
+                                user,
+                                accessToken: token,
+                                refreshToken: refreshToken,
+                                isInitialized: true,
+                                isLoading: false,
+                            });
+                            console.log(
+                                "Auth initialized with user:",
+                                user.email
+                            );
+                        } catch (parseError) {
+                            console.error(
+                                "Error parsing user data:",
+                                parseError
+                            );
+                            get().clearAuth();
+                            set({ isInitialized: true, isLoading: false });
+                        }
+                    } else {
+                        set({ isInitialized: true, isLoading: false });
+                        console.log("Auth initialized - no user data");
                     }
-                } else {
-                    set({ isInitialized: true });
+                } catch (error) {
+                    console.error("Auth initialization error:", error);
+                    get().clearAuth();
+                    set({ isInitialized: true, isLoading: false });
                 }
             },
 
-            // ADD THIS FUNCTION
             setUser: (user) => {
                 set({ user });
-                // Also update localStorage
                 if (user) {
                     localStorage.setItem("userData", JSON.stringify(user));
                 }
@@ -3429,6 +3752,11 @@ export const useAuthStore = create(
                 try {
                     const response = await authService.login(credentials);
                     const { user, accessToken, refreshToken } = response.data;
+
+                    console.log("Login successful:", {
+                        user: user.email,
+                        hasToken: !!accessToken,
+                    });
 
                     // Store in both Zustand state AND localStorage
                     localStorage.setItem("accessToken", accessToken);
@@ -3445,6 +3773,7 @@ export const useAuthStore = create(
 
                     return response;
                 } catch (error) {
+                    console.error("Login error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -3458,6 +3787,7 @@ export const useAuthStore = create(
                     set({ isLoading: false, error: null });
                     return response;
                 } catch (error) {
+                    console.error("Register error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -3473,7 +3803,10 @@ export const useAuthStore = create(
                         const { user, accessToken, refreshToken } =
                             response.data;
 
-                        // Store in both Zustand state AND localStorage
+                        console.log("Email verification successful:", {
+                            user: user.email,
+                        });
+
                         localStorage.setItem("accessToken", accessToken);
                         localStorage.setItem("refreshToken", refreshToken);
                         localStorage.setItem("userData", JSON.stringify(user));
@@ -3489,6 +3822,7 @@ export const useAuthStore = create(
 
                     return response;
                 } catch (error) {
+                    console.error("Email verification error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -3504,6 +3838,7 @@ export const useAuthStore = create(
                     set({ isLoading: false });
                     return response;
                 } catch (error) {
+                    console.error("Resend verification error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -3522,6 +3857,8 @@ export const useAuthStore = create(
                     localStorage.removeItem("refreshToken");
                     localStorage.removeItem("userData");
                     localStorage.removeItem("auth-storage");
+                    localStorage.removeItem("notes-storage");
+                    localStorage.removeItem("categories-storage");
 
                     set({
                         user: null,
@@ -3530,10 +3867,16 @@ export const useAuthStore = create(
                         isLoading: false,
                         error: null,
                     });
+
+                    console.log("Logout completed");
                 }
             },
 
             clearAuth: () => {
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("refreshToken");
+                localStorage.removeItem("userData");
+
                 set({
                     user: null,
                     accessToken: null,
@@ -3671,8 +4014,23 @@ export const useCategoriesStore = create(
                     let errorMessage =
                         error.message || "Failed to create category";
 
+                    // Handle different error response formats
                     if (error.response?.data?.errors) {
-                        validationErrors = error.response.data.errors;
+                        const errors = error.response.data.errors;
+
+                        // If errors is an array (express-validator format)
+                        if (Array.isArray(errors)) {
+                            errors.forEach((err) => {
+                                validationErrors[
+                                    err.path || err.param || "general"
+                                ] = err.msg || err.message;
+                            });
+                            errorMessage = "Please fix the validation errors";
+                        }
+                        // If errors is an object
+                        else if (typeof errors === "object") {
+                            validationErrors = errors;
+                        }
                     } else if (error.response?.data?.message) {
                         errorMessage = error.response.data.message;
                     } else if (error.response?.data?.msg) {
@@ -3708,15 +4066,36 @@ export const useCategoriesStore = create(
                     }));
                     return updatedCategory;
                 } catch (error) {
-                    const errorMessage =
-                        error.response?.data?.message ||
-                        error.response?.data?.msg ||
-                        error.message ||
-                        "Failed to update category";
+                    console.error("Category update error:", error);
+
+                    let validationErrors = {};
+                    let errorMessage =
+                        error.message || "Failed to update category";
+
+                    // Handle different error response formats
+                    if (error.response?.data?.errors) {
+                        const errors = error.response.data.errors;
+
+                        if (Array.isArray(errors)) {
+                            errors.forEach((err) => {
+                                validationErrors[
+                                    err.path || err.param || "general"
+                                ] = err.msg || err.message;
+                            });
+                            errorMessage = "Please fix the validation errors";
+                        } else if (typeof errors === "object") {
+                            validationErrors = errors;
+                        }
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.response?.data?.msg) {
+                        errorMessage = error.response.data.msg;
+                    }
+
                     set({
                         isLoading: false,
                         error: errorMessage,
-                        validationErrors: {},
+                        validationErrors,
                     });
                     throw error;
                 }
@@ -3785,7 +4164,6 @@ export { useAppStore } from "./appStore";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { notesService } from "../services/notesService";
-import { EncryptionService } from "../utils/encryption";
 
 export const useNotesStore = create(
     persist(
@@ -3798,7 +4176,6 @@ export const useNotesStore = create(
             currentCategoryFilter: null,
             lastFetched: null,
 
-            // Fetch notes with proper request deduplication
             fetchNotes: async (forceRefresh = false) => {
                 const state = get();
 
@@ -3807,7 +4184,7 @@ export const useNotesStore = create(
                     return;
                 }
 
-                // Use cache if data is fresh (less than 30 seconds old)
+                // Use cache if data is fresh
                 const hasRecentData =
                     state.lastFetched &&
                     Date.now() - state.lastFetched < 30000 &&
@@ -3821,64 +4198,21 @@ export const useNotesStore = create(
 
                 try {
                     const response = await notesService.getNotes();
-                    let notes = response.data || [];
-
-                    // For demo purposes, if no notes from API, create some mock data
-                    if (notes.length === 0) {
-                        console.log("No notes from API, using demo data");
-                        notes = [
-                            {
-                                id: "1",
-                                title: "Welcome to LockNote",
-                                content: "This is your first encrypted note!",
-                                tags: ["welcome", "demo"],
-                                categoryId: null,
-                                isPinned: true,
-                                createdAt: new Date().toISOString(),
-                                updatedAt: new Date().toISOString(),
-                            },
-                        ];
-                    }
+                    // Handle both response formats
+                    const notes = response.data || response || [];
 
                     set({
-                        notes: notes,
+                        notes: Array.isArray(notes) ? notes : [],
                         isLoading: false,
+                        error: null,
                         lastFetched: Date.now(),
                     });
                 } catch (error) {
                     console.error("Error fetching notes:", error);
-
-                    // If API fails, use demo data for development
-                    console.log("API failed, using demo data");
-                    const demoNotes = [
-                        {
-                            id: "1",
-                            title: "Welcome to LockNote",
-                            content:
-                                "This is your first encrypted note! Your notes are securely encrypted.",
-                            tags: ["welcome", "encryption"],
-                            categoryId: null,
-                            isPinned: true,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        },
-                        {
-                            id: "2",
-                            title: "How to use LockNote",
-                            content:
-                                '1. Create notes with the "New Note" button\n2. Organize with categories\n3. Your data is encrypted end-to-end',
-                            tags: ["tutorial", "guide"],
-                            categoryId: null,
-                            isPinned: false,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        },
-                    ];
-
                     set({
-                        notes: demoNotes,
                         isLoading: false,
-                        lastFetched: Date.now(),
+                        error: error.message,
+                        notes: [], // Clear notes on error
                     });
                 }
             },
@@ -3888,7 +4222,7 @@ export const useNotesStore = create(
                 set({ isLoading: true, error: null });
                 try {
                     const response = await notesService.getNoteById(id);
-                    let note = response.data;
+                    const note = response.data || response;
 
                     set({
                         currentNote: note,
@@ -3911,7 +4245,7 @@ export const useNotesStore = create(
                 set({ isLoading: true, error: null });
                 try {
                     const response = await notesService.createNote(noteData);
-                    const newNote = response.data;
+                    const newNote = response.data || response;
 
                     set((state) => ({
                         notes: [newNote, ...state.notes],
@@ -3921,22 +4255,11 @@ export const useNotesStore = create(
                     return newNote;
                 } catch (error) {
                     console.error("Error creating note:", error);
-
-                    // If API fails, create note locally for demo
-                    const localNote = {
-                        id: Date.now().toString(),
-                        ...noteData,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    };
-
-                    set((state) => ({
-                        notes: [localNote, ...state.notes],
+                    set({
                         isLoading: false,
-                        lastFetched: Date.now(),
-                    }));
-
-                    return localNote;
+                        error: error.message,
+                    });
+                    throw error;
                 }
             },
 
@@ -3948,7 +4271,7 @@ export const useNotesStore = create(
                         id,
                         noteData
                     );
-                    const updatedNote = response.data;
+                    const updatedNote = response.data || response;
 
                     set((state) => ({
                         notes: state.notes.map((note) =>
@@ -4042,7 +4365,7 @@ export const useNotesStore = create(
                     );
                 }
 
-                // Sort: pinned notes first, then by date
+                // Sort: pinned notes first, then by date (newest first)
                 return filteredNotes.sort((a, b) => {
                     if (a.isPinned && !b.isPinned) return -1;
                     if (!a.isPinned && b.isPinned) return 1;
@@ -4112,7 +4435,7 @@ export const useNotesStore = create(
 ```js
 export const API_BASE_URL =
     import.meta.env.VITE_API_URL || "http://localhost:3001/api";
-export const APP_NAME = import.meta.env.VITE_APP_NAME || "LockNote";
+export const APP_NAME = import.meta.env.VITE_APP_NAME || "JustNotes";
 
 export const ROUTES = {
     HOME: "/",
@@ -4127,7 +4450,6 @@ export const STORAGE_KEYS = {
     ACCESS_TOKEN: "accessToken",
     REFRESH_TOKEN: "refreshToken",
     USER_DATA: "userData",
-    ENCRYPTION_KEYS: "encryptionKeys",
 };
 
 export const ERROR_MESSAGES = {
@@ -4136,185 +4458,6 @@ export const ERROR_MESSAGES = {
     FORBIDDEN: "You do not have permission to access this resource.",
     DEFAULT: "Something went wrong. Please try again.",
 };
-
-```
-
-## File: utils/encryption.js
-```js
-import CryptoJS from "crypto-js";
-
-export class EncryptionService {
-    static stringToBase64(str) {
-        try {
-            if (typeof btoa !== "undefined")
-                return btoa(unescape(encodeURIComponent(str)));
-            return Buffer.from(str, "utf8").toString("base64");
-        } catch (err) {
-            console.error("Base64 encoding error:", err);
-            throw new Error("Failed to encode data to base64");
-        }
-    }
-
-    static base64ToString(base64) {
-        try {
-            if (typeof atob !== "undefined")
-                return decodeURIComponent(escape(atob(base64)));
-            return Buffer.from(base64, "base64").toString("utf8");
-        } catch (err) {
-            console.error("Base64 decoding error:", err);
-            throw new Error("Failed to decode base64 data");
-        }
-    }
-
-    static generateSymmetricKey() {
-        return CryptoJS.lib.WordArray.random(32).toString();
-    }
-
-    static encryptWithSymmetricKey(data, symmetricKey) {
-        try {
-            const base64Data = this.stringToBase64(data);
-            return CryptoJS.AES.encrypt(base64Data, symmetricKey).toString();
-        } catch (err) {
-            console.error("Encryption error:", err);
-            throw new Error("Failed to encrypt data");
-        }
-    }
-
-    static decryptWithSymmetricKey(encryptedData, symmetricKey) {
-        try {
-            const decrypted = CryptoJS.AES.decrypt(encryptedData, symmetricKey);
-            const base64Result = decrypted.toString(CryptoJS.enc.Utf8);
-            if (!base64Result)
-                throw new Error("Decryption resulted in empty string");
-            return this.base64ToString(base64Result);
-        } catch (err) {
-            console.error("Decryption error:", err);
-            throw new Error("Failed to decrypt data");
-        }
-    }
-
-    static encryptSymmetricKey(symmetricKey, publicKey) {
-        // For now, use a simple encryption since we don't have RSA implemented
-        // In a real app, you'd use Web Crypto API or a library for RSA
-        return this.stringToBase64(symmetricKey);
-    }
-
-    static decryptSymmetricKey(encryptedSymmetricKey, privateKey) {
-        // For now, simple base64 decode since we're using symmetric encryption
-        // In a real app, you'd decrypt with RSA private key
-        return this.base64ToString(encryptedSymmetricKey);
-    }
-
-    // ADD THESE MISSING METHODS
-    static generateKeyPair() {
-        // Mock key pair generation - in real app use Web Crypto API
-        return {
-            publicKey:
-                "mock-public-key-" + Math.random().toString(36).substr(2, 9),
-            privateKey:
-                "mock-private-key-" + Math.random().toString(36).substr(2, 9),
-        };
-    }
-
-    static encryptPrivateKey(privateKey, password) {
-        // Simple encryption for demo - use proper encryption in production
-        return CryptoJS.AES.encrypt(privateKey, password).toString();
-    }
-
-    static decryptPrivateKey(encryptedPrivateKey, password) {
-        try {
-            const decrypted = CryptoJS.AES.decrypt(
-                encryptedPrivateKey,
-                password
-            );
-            return decrypted.toString(CryptoJS.enc.Utf8);
-        } catch (error) {
-            console.error("Private key decryption error:", error);
-            throw new Error("Failed to decrypt private key - wrong password?");
-        }
-    }
-
-    static prepareNoteData(noteData, userPublicKey) {
-        try {
-            console.log("Original note data:", noteData);
-
-            const symmetricKey = this.generateSymmetricKey();
-            console.log("Generated symmetric key:", symmetricKey);
-
-            const encryptedTitle = this.encryptWithSymmetricKey(
-                noteData.title,
-                symmetricKey
-            );
-            const encryptedContent = this.encryptWithSymmetricKey(
-                noteData.content,
-                symmetricKey
-            );
-            const encryptedTags =
-                noteData.tags?.map((tag) =>
-                    this.encryptWithSymmetricKey(tag, symmetricKey)
-                ) || [];
-            const encryptedSymmetricKey = this.encryptSymmetricKey(
-                symmetricKey,
-                userPublicKey
-            );
-
-            const preparedData = {
-                title: encryptedTitle,
-                content: encryptedContent,
-                tags: encryptedTags,
-                encryptedKey: encryptedSymmetricKey,
-                categoryId: noteData.categoryId || null,
-                isPinned: noteData.isPinned || false,
-            };
-
-            console.log("Prepared encrypted note data:", preparedData);
-            return preparedData;
-        } catch (err) {
-            console.error("Error preparing note data:", err);
-            throw new Error("Failed to prepare note data for encryption");
-        }
-    }
-
-    // ADD THIS MISSING DECRYPTION METHOD
-    static decryptNoteData(note, encryptedPrivateKey, password) {
-        try {
-            // First decrypt the private key with user's password
-            const privateKey = this.decryptPrivateKey(
-                encryptedPrivateKey,
-                password
-            );
-
-            // Then decrypt the symmetric key with the private key
-            const symmetricKey = this.decryptSymmetricKey(
-                note.encryptedKey,
-                privateKey
-            );
-
-            // Finally decrypt the note content with the symmetric key
-            const title = this.decryptWithSymmetricKey(
-                note.title,
-                symmetricKey
-            );
-            const content = this.decryptWithSymmetricKey(
-                note.content,
-                symmetricKey
-            );
-            const tags =
-                note.tags?.map((tag) =>
-                    this.decryptWithSymmetricKey(tag, symmetricKey)
-                ) || [];
-
-            return {
-                title,
-                content,
-                tags,
-            };
-        } catch (error) {
-            console.error("Error decrypting note data:", error);
-            throw new Error("Failed to decrypt note data");
-        }
-    }
-}
 
 ```
 

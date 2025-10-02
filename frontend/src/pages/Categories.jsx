@@ -14,11 +14,15 @@ const Categories = () => {
         validationErrors,
         fetchCategories,
         createCategory,
+        updateCategory,
+        deleteCategory,
         clearError,
         clearValidationErrors
     } = useCategoriesStore();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
     const [newCategory, setNewCategory] = useState({
         name: '',
         description: '',
@@ -45,11 +49,7 @@ const Categories = () => {
         } else if (newCategory.name.length > 100) {
             errors.name = 'Category name must be less than 100 characters';
         }
-
-        if (newCategory.description && newCategory.description.length > 500) {
-            errors.description = 'Description must be less than 500 characters';
-        }
-
+        
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -87,8 +87,74 @@ const Categories = () => {
         }
     };
 
+    const handleEditCategory = (category) => {
+        setEditingCategory(category);
+        setNewCategory({
+            name: category.name,
+            description: category.description || '',
+            color: category.color || '#6B73FF'
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleUpdateCategory = async (e) => {
+        e.preventDefault();
+        setCreateError('');
+        setFormErrors({});
+        clearError();
+        clearValidationErrors();
+
+        if (!validateForm()) {
+            return;
+        }
+
+        setCreateLoading(true);
+
+        try {
+            const categoryData = {
+                name: newCategory.name.trim(),
+                description: newCategory.description.trim() || null,
+                color: newCategory.color || '#6B73FF'
+            };
+
+            await updateCategory(editingCategory.id, categoryData);
+
+            setNewCategory({name: '', description: '', color: '#6B73FF'});
+            setEditingCategory(null);
+            setIsEditModalOpen(false);
+            await fetchCategories();
+        } catch (error) {
+            console.error('Category update error:', error);
+            setCreateError(error.message || 'Failed to update category');
+        } finally {
+            setCreateLoading(false);
+        }
+    };
+
+    const handleDeleteCategory = async (category) => {
+        if (window.confirm(`Are you sure you want to delete the category "${category.name}"? This will not delete the notes in this category.`)) {
+            try {
+                await deleteCategory(category.id);
+                await fetchCategories();
+            } catch (error) {
+                console.error('Category deletion error:', error);
+                setCreateError(error.message || 'Failed to delete category');
+            }
+        }
+    };
+
     const handleModalClose = () => {
         setIsModalOpen(false);
+        setNewCategory({name: '', description: '', color: '#6B73FF'});
+        setCreateError('');
+        setFormErrors({});
+        clearError();
+        clearValidationErrors();
+    };
+
+    const handleEditModalClose = () => {
+        setIsEditModalOpen(false);
+        setEditingCategory(null);
         setNewCategory({name: '', description: '', color: '#6B73FF'});
         setCreateError('');
         setFormErrors({});
@@ -128,17 +194,16 @@ const Categories = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
             ) : categories.length > 0 ? (
-                // CHANGED: Using list view instead of cards
-                <div className="bg-white rounded-lg border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {categories.map((category) => (
-                            <CategoryListItem
-                                key={category.id}
-                                category={category}
-                                noteCount={getNoteCount(category)}
-                            />
-                        ))}
-                    </div>
+                <div className="space-y-4">
+                    {categories.map((category) => (
+                        <CategoryListItem
+                            key={category.id}
+                            category={category}
+                            noteCount={getNoteCount(category)}
+                            onEdit={handleEditCategory}
+                            onDelete={handleDeleteCategory}
+                        />
+                    ))}
                 </div>
             ) : (
                 <Card>
@@ -159,6 +224,7 @@ const Categories = () => {
                 </Card>
             )}
 
+            {/* Create Category Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleModalClose}
@@ -179,8 +245,13 @@ const Categories = () => {
                         <Alert variant="destructive">
                             <AlertDescription>
                                 <ul className="list-disc list-inside space-y-1">
-                                    {Object.entries(validationErrors).map(([field, message]) => (
-                                        <li key={field}>{message}</li>
+                                    {Object.entries(validationErrors).map(([field, error]) => (
+                                        <li key={field}>
+                                            {typeof error === 'string'
+                                                ? error
+                                                : error.msg || JSON.stringify(error)
+                                            }
+                                        </li>
                                     ))}
                                 </ul>
                             </AlertDescription>
@@ -277,40 +348,181 @@ const Categories = () => {
                     </div>
                 </form>
             </Modal>
+
+            {/* Edit Category Modal */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={handleEditModalClose}
+                title="Edit Category"
+                description="Update your category details"
+                size="md"
+            >
+                <form onSubmit={handleUpdateCategory} className="space-y-4">
+                    {createError && (
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                {typeof createError === 'string' ? createError : 'Failed to update category'}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {Object.keys(validationErrors).length > 0 && (
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                <ul className="list-disc list-inside space-y-1">
+                                    {Object.entries(validationErrors).map(([field, message]) => (
+                                        <li key={field}>{message}</li>
+                                    ))}
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Category Name *</label>
+                        <Input
+                            placeholder="Enter category name"
+                            value={newCategory.name}
+                            onChange={(e) => {
+                                setNewCategory(prev => ({...prev, name: e.target.value}));
+                                if (formErrors.name) {
+                                    setFormErrors(prev => ({...prev, name: ''}));
+                                }
+                            }}
+                            required
+                            disabled={createLoading}
+                            className={getFieldError('name') ? 'border-red-500' : ''}
+                        />
+                        {getFieldError('name') && (
+                            <p className="text-sm text-red-600">{getFieldError('name')}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Description (Optional)</label>
+                        <Input
+                            placeholder="Enter description"
+                            value={newCategory.description}
+                            onChange={(e) => {
+                                setNewCategory(prev => ({...prev, description: e.target.value}));
+                                if (formErrors.description) {
+                                    setFormErrors(prev => ({...prev, description: ''}));
+                                }
+                            }}
+                            disabled={createLoading}
+                            className={getFieldError('description') ? 'border-red-500' : ''}
+                        />
+                        {getFieldError('description') && (
+                            <p className="text-sm text-red-600">{getFieldError('description')}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Color</label>
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <input
+                                    type="color"
+                                    value={newCategory.color}
+                                    onChange={handleColorChange}
+                                    className="w-12 h-12 rounded cursor-pointer border-2 border-gray-300"
+                                    disabled={createLoading}
+                                    style={{
+                                        backgroundColor: newCategory.color,
+                                    }}
+                                />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-sm text-muted-foreground font-mono bg-gray-100 px-2 py-1 rounded">
+                                    {newCategory.color}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setNewCategory(prev => ({...prev, color: '#6B73FF'}))}
+                                    className="mt-1 text-xs"
+                                >
+                                    Reset to default
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                        <Button
+                            type="submit"
+                            className="flex-1"
+                            disabled={createLoading}
+                        >
+                            {createLoading ? 'Updating...' : 'Update Category'}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleEditModalClose}
+                            disabled={createLoading}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };
 
-// NEW: List item component for categories
-const CategoryListItem = ({category, noteCount}) => {
+// Category List Item Component
+const CategoryListItem = ({category, noteCount, onEdit, onDelete}) => {
     return (
-        <div className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <div className="flex items-center gap-4 flex-1">
-                <div
-                    className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200"
-                    style={{backgroundColor: category.color || '#6B73FF'}}
-                />
-                <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
-                        {category.name}
-                    </h3>
-                    {category.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                            {category.description}
-                        </p>
-                    )}
-                </div>
-            </div>
+        <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                        <div
+                            className="w-4 h-4 rounded-full flex-shrink-0 border"
+                            style={{backgroundColor: category.color || '#6B73FF'}}
+                        />
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold truncate">{category.name}</h3>
+                            {category.description && (
+                                <p className="text-sm text-muted-foreground truncate">
+                                    {category.description}
+                                </p>
+                            )}
+                        </div>
+                    </div>
 
-            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
-                <span className="whitespace-nowrap">
-                    {noteCount} {noteCount === 1 ? 'note' : 'notes'}
-                </span>
-                <span className="whitespace-nowrap">
-                    {category.createdAt ? new Date(category.createdAt).toLocaleDateString() : 'N/A'}
-                </span>
-            </div>
-        </div>
+                    <div className="flex items-center gap-4 ml-4">
+                        <div className="text-sm text-muted-foreground text-right">
+                            <div>{noteCount} {noteCount === 1 ? 'note' : 'notes'}</div>
+                            <div className="text-xs">
+                                {category.createdAt ? new Date(category.createdAt).toLocaleDateString() : 'N/A'}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onEdit(category)}
+                                className="h-8"
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => onDelete(category)}
+                                className="h-8 bg-red-500"
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 

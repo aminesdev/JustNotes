@@ -1,16 +1,37 @@
-# React + Vite
+# JustNotes - Frontend Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A responsive note-taking app built with React and Tailwind CSS.
 
-Currently, two official plugins are available:
+## Live Demo
+[View Live Demo](https://your-live-demo-link.com)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- User Authentication: Login, registration, and email verification
+- Note Management: Create, edit, delete, and organize notes
+- Categories: Organize notes with customizable categories
+- Search & Filter: Search notes by content, title, or tags
+- Dark/Light Theme: Toggle between dark and light modes
+- Responsive Design: Works on desktop and mobile devices
 
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- React 18
+- React Router DOM
+- Zustand (state management)
+- Tailwind CSS
+- Axios (HTTP client)
+- Vite (build tool)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Project Structure
+
+```
+src/
+├── components/ # UI and layout components
+├── pages/ # Route components
+├── services/ # API service layers
+├── stores/ # Zustand state stores
+├── hooks/ # Custom hooks
+└── utils/ # Helper functions
+
+```

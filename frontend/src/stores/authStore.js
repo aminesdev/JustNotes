@@ -13,33 +13,51 @@ export const useAuthStore = create(
             isInitialized: false,
 
             initialize: () => {
-                const token = localStorage.getItem("accessToken");
-                const userData = localStorage.getItem("userData");
+                try {
+                    const token = localStorage.getItem("accessToken");
+                    const userData = localStorage.getItem("userData");
+                    const refreshToken = localStorage.getItem("refreshToken");
 
-                if (token && userData) {
-                    try {
-                        const user = JSON.parse(userData);
-                        const refreshToken =
-                            localStorage.getItem("refreshToken");
+                    console.log("Auth initialization:", {
+                        hasToken: !!token,
+                        hasUserData: !!userData,
+                    });
 
-                        set({
-                            user,
-                            accessToken: token,
-                            refreshToken,
-                            isInitialized: true,
-                        });
-                    } catch {
-                        get().clearAuth();
+                    if (token && userData) {
+                        try {
+                            const user = JSON.parse(userData);
+                            set({
+                                user,
+                                accessToken: token,
+                                refreshToken: refreshToken,
+                                isInitialized: true,
+                                isLoading: false,
+                            });
+                            console.log(
+                                "Auth initialized with user:",
+                                user.email
+                            );
+                        } catch (parseError) {
+                            console.error(
+                                "Error parsing user data:",
+                                parseError
+                            );
+                            get().clearAuth();
+                            set({ isInitialized: true, isLoading: false });
+                        }
+                    } else {
+                        set({ isInitialized: true, isLoading: false });
+                        console.log("Auth initialized - no user data");
                     }
-                } else {
-                    set({ isInitialized: true });
+                } catch (error) {
+                    console.error("Auth initialization error:", error);
+                    get().clearAuth();
+                    set({ isInitialized: true, isLoading: false });
                 }
             },
 
-            // ADD THIS FUNCTION
             setUser: (user) => {
                 set({ user });
-                // Also update localStorage
                 if (user) {
                     localStorage.setItem("userData", JSON.stringify(user));
                 }
@@ -51,6 +69,11 @@ export const useAuthStore = create(
                 try {
                     const response = await authService.login(credentials);
                     const { user, accessToken, refreshToken } = response.data;
+
+                    console.log("Login successful:", {
+                        user: user.email,
+                        hasToken: !!accessToken,
+                    });
 
                     // Store in both Zustand state AND localStorage
                     localStorage.setItem("accessToken", accessToken);
@@ -67,6 +90,7 @@ export const useAuthStore = create(
 
                     return response;
                 } catch (error) {
+                    console.error("Login error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -80,6 +104,7 @@ export const useAuthStore = create(
                     set({ isLoading: false, error: null });
                     return response;
                 } catch (error) {
+                    console.error("Register error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -95,7 +120,10 @@ export const useAuthStore = create(
                         const { user, accessToken, refreshToken } =
                             response.data;
 
-                        // Store in both Zustand state AND localStorage
+                        console.log("Email verification successful:", {
+                            user: user.email,
+                        });
+
                         localStorage.setItem("accessToken", accessToken);
                         localStorage.setItem("refreshToken", refreshToken);
                         localStorage.setItem("userData", JSON.stringify(user));
@@ -111,6 +139,7 @@ export const useAuthStore = create(
 
                     return response;
                 } catch (error) {
+                    console.error("Email verification error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -126,6 +155,7 @@ export const useAuthStore = create(
                     set({ isLoading: false });
                     return response;
                 } catch (error) {
+                    console.error("Resend verification error:", error);
                     set({ isLoading: false, error: error.message });
                     throw error;
                 }
@@ -144,6 +174,8 @@ export const useAuthStore = create(
                     localStorage.removeItem("refreshToken");
                     localStorage.removeItem("userData");
                     localStorage.removeItem("auth-storage");
+                    localStorage.removeItem("notes-storage");
+                    localStorage.removeItem("categories-storage");
 
                     set({
                         user: null,
@@ -152,10 +184,16 @@ export const useAuthStore = create(
                         isLoading: false,
                         error: null,
                     });
+
+                    console.log("Logout completed");
                 }
             },
 
             clearAuth: () => {
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("refreshToken");
+                localStorage.removeItem("userData");
+
                 set({
                     user: null,
                     accessToken: null,

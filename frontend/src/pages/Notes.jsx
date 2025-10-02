@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import NoteList from '@/components/notes/NoteList';
 import NoteEditor from '@/components/notes/NoteEditor';
 import {useNotesStore} from '../stores/notesStore';
@@ -12,26 +12,33 @@ const Notes = () => {
     } = useNotesStore();
 
     const {categories, fetchCategories} = useCategoriesStore();
+    const [dataLoaded, setDataLoaded] = useState(false);
 
     // Load data on component mount
     useEffect(() => {
         const loadData = async () => {
-            await Promise.all([
-                fetchNotes(),
-                fetchCategories()
-            ]);
+            try {
+                await Promise.all([
+                    fetchNotes(),
+                    fetchCategories()
+                ]);
+                setDataLoaded(true);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                setDataLoaded(true); // Still set as loaded to show UI
+            }
         };
         loadData();
-    }, []); // Empty dependency array - run only once
+    }, [fetchNotes, fetchCategories]);
 
     // Reload when category filter changes
     useEffect(() => {
-        if (currentCategoryFilter) {
-            fetchNotes(true); // force refresh
+        if (currentCategoryFilter && dataLoaded) {
+            fetchNotes(true);
         }
-    }, [currentCategoryFilter]);
+    }, [currentCategoryFilter, dataLoaded]);
 
-    if (isLoading) {
+    if (isLoading && !dataLoaded) {
         return (
             <div className="flex justify-center items-center min-h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -52,7 +59,7 @@ const Notes = () => {
                     <p className="text-muted-foreground">
                         {currentCategoryFilter ?
                             `Notes in this category`
-                            : 'Manage your encrypted notes'
+                            : 'Manage your notes'
                         }
                     </p>
                 </div>

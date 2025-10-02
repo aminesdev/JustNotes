@@ -25,11 +25,11 @@ export const sendVerificationEmail = async (email, code) => {
         await checkEmailRateLimit(email);
         const mailOptions = {
             from: {
-                name: "LockNote",
+                name: "JustNotes",
                 address: process.env.GMAIL_USER,
             },
             to: email,
-            subject: "Verify Your Email - LockNote",
+            subject: "Verify Your Email - JustNotes",
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -105,14 +105,14 @@ export const sendVerificationEmail = async (email, code) => {
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin: 0; font-size: 24px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;">LockNote</h1>
+                            <h1 style="margin: 0; font-size: 24px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;">JustNotes</h1>
                             <p style="margin: 5px 0 0 0; opacity: 0.8; font-size: 14px;">End-to-End Encrypted Notes</p>
                         </div>
                         
                         <div class="content">
                             <h2 style="margin-top: 0; color: #000000;">Email Verification Required</h2>
                             
-                            <p>To complete your LockNote account setup, please verify your email address using the code below:</p>
+                            <p>To complete your JustNotes account setup, please verify your email address using the code below:</p>
                             
                             <div class="code-container">
                                 <div class="verification-code">${code}</div>
@@ -126,7 +126,7 @@ export const sendVerificationEmail = async (email, code) => {
                             
                             <p style="border-top: 1px solid #e5e5e5; padding-top: 15px; margin-top: 25px;">
                                 <small>
-                                    If you didn't create a LockNote account, please ignore this email.<br>
+                                    If you didn't create a JustNotes account, please ignore this email.<br>
                                     Your data security is our priority - all notes are encrypted before they leave your device.
                                 </small>
                             </p>
@@ -134,7 +134,7 @@ export const sendVerificationEmail = async (email, code) => {
                         
                         <div class="footer">
                             <p style="margin: 0;">
-                                &copy; 2024 LockNote. All rights reserved.<br>
+                                &copy; 2024 JustNotes. All rights reserved.<br>
                                 Secure • Encrypted • Private
                             </p>
                         </div>
@@ -143,9 +143,9 @@ export const sendVerificationEmail = async (email, code) => {
                 </html>
             `,
             text: `
-LOCKNOTE - EMAIL VERIFICATION
+JustNotes - EMAIL VERIFICATION
 
-Verify your email address to complete your LockNote account setup.
+Verify your email address to complete your JustNotes account setup.
 
 Your verification code: ${code}
 
@@ -153,10 +153,10 @@ This code will expire in 15 minutes.
 
 Enter this code in the verification screen to activate your account.
 
-If you didn't create a LockNote account, please ignore this email.
+If you didn't create a JustNotes account, please ignore this email.
 
 --
-LockNote - End-to-End Encrypted Notes
+JustNotes - End-to-End Encrypted Notes
             `,
         };
 
@@ -176,11 +176,11 @@ export const sendPasswordResetEmail = async (email, code) => {
     try {
         const mailOptions = {
             from: {
-                name: "LockNote",
+                name: "JustNotes",
                 address: process.env.GMAIL_USER,
             },
             to: email,
-            subject: "Password Reset Request - LockNote",
+            subject: "Password Reset Request - JustNotes",
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -246,14 +246,14 @@ export const sendPasswordResetEmail = async (email, code) => {
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin: 0; font-size: 24px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;">LockNote</h1>
+                            <h1 style="margin: 0; font-size: 24px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;">JustNotes</h1>
                             <p style="margin: 5px 0 0 0; opacity: 0.8; font-size: 14px;">End-to-End Encrypted Notes</p>
                         </div>
                         
                         <div class="content">
                             <h2 style="margin-top: 0; color: #000000;">Password Reset Request</h2>
                             
-                            <p>We received a request to reset your LockNote account password. Use the code below to proceed:</p>
+                            <p>We received a request to reset your JustNotes account password. Use the code below to proceed:</p>
                             
                             <div class="code-container">
                                 <div class="verification-code">${code}</div>
@@ -269,14 +269,14 @@ export const sendPasswordResetEmail = async (email, code) => {
                             <p style="border-top: 1px solid #e5e5e5; padding-top: 15px; margin-top: 25px;">
                                 <small>
                                     For your security, this code can only be used once.<br>
-                                    Remember: LockNote cannot recover your encrypted data if you lose your encryption password.
+                                    Remember: JustNotes cannot recover your encrypted data if you lose your encryption password.
                                 </small>
                             </p>
                         </div>
                         
                         <div class="footer">
                             <p style="margin: 0;">
-                                &copy; 2024 LockNote. All rights reserved.<br>
+                                &copy; 2024 JustNotes. All rights reserved.<br>
                                 Secure • Encrypted • Private
                             </p>
                         </div>
@@ -285,9 +285,9 @@ export const sendPasswordResetEmail = async (email, code) => {
                 </html>
             `,
             text: `
-LOCKNOTE - PASSWORD RESET
+JustNotes - PASSWORD RESET
 
-We received a request to reset your LockNote account password.
+We received a request to reset your JustNotes account password.
 
 Your password reset code: ${code}
 
@@ -297,10 +297,10 @@ Enter this code in the password reset screen to create a new password.
 
 If you didn't request this reset, your account may be compromised.
 
-Remember: LockNote cannot recover your encrypted data if you lose your encryption password.
+Remember: JustNotes cannot recover your encrypted data if you lose your encryption password.
 
 --
-LockNote - End-to-End Encrypted Notes
+JustNotes - End-to-End Encrypted Notes
             `,
         };
 

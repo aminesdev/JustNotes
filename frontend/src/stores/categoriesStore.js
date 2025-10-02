@@ -110,8 +110,23 @@ export const useCategoriesStore = create(
                     let errorMessage =
                         error.message || "Failed to create category";
 
+                    // Handle different error response formats
                     if (error.response?.data?.errors) {
-                        validationErrors = error.response.data.errors;
+                        const errors = error.response.data.errors;
+
+                        // If errors is an array (express-validator format)
+                        if (Array.isArray(errors)) {
+                            errors.forEach((err) => {
+                                validationErrors[
+                                    err.path || err.param || "general"
+                                ] = err.msg || err.message;
+                            });
+                            errorMessage = "Please fix the validation errors";
+                        }
+                        // If errors is an object
+                        else if (typeof errors === "object") {
+                            validationErrors = errors;
+                        }
                     } else if (error.response?.data?.message) {
                         errorMessage = error.response.data.message;
                     } else if (error.response?.data?.msg) {
@@ -147,15 +162,36 @@ export const useCategoriesStore = create(
                     }));
                     return updatedCategory;
                 } catch (error) {
-                    const errorMessage =
-                        error.response?.data?.message ||
-                        error.response?.data?.msg ||
-                        error.message ||
-                        "Failed to update category";
+                    console.error("Category update error:", error);
+
+                    let validationErrors = {};
+                    let errorMessage =
+                        error.message || "Failed to update category";
+
+                    // Handle different error response formats
+                    if (error.response?.data?.errors) {
+                        const errors = error.response.data.errors;
+
+                        if (Array.isArray(errors)) {
+                            errors.forEach((err) => {
+                                validationErrors[
+                                    err.path || err.param || "general"
+                                ] = err.msg || err.message;
+                            });
+                            errorMessage = "Please fix the validation errors";
+                        } else if (typeof errors === "object") {
+                            validationErrors = errors;
+                        }
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.response?.data?.msg) {
+                        errorMessage = error.response.data.msg;
+                    }
+
                     set({
                         isLoading: false,
                         error: errorMessage,
-                        validationErrors: {},
+                        validationErrors,
                     });
                     throw error;
                 }

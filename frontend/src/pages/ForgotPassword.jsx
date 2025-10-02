@@ -33,8 +33,7 @@ const ForgotPassword = () => {
             <div className="max-w-md w-full space-y-8">
                 {/* App Logo/Title */}
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>

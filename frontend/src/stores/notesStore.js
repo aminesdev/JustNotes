@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { notesService } from "../services/notesService";
-import { EncryptionService } from "../utils/encryption";
 
 export const useNotesStore = create(
     persist(
@@ -14,7 +13,6 @@ export const useNotesStore = create(
             currentCategoryFilter: null,
             lastFetched: null,
 
-            // Fetch notes with proper request deduplication
             fetchNotes: async (forceRefresh = false) => {
                 const state = get();
 
@@ -23,7 +21,7 @@ export const useNotesStore = create(
                     return;
                 }
 
-                // Use cache if data is fresh (less than 30 seconds old)
+                // Use cache if data is fresh
                 const hasRecentData =
                     state.lastFetched &&
                     Date.now() - state.lastFetched < 30000 &&
@@ -37,64 +35,21 @@ export const useNotesStore = create(
 
                 try {
                     const response = await notesService.getNotes();
-                    let notes = response.data || [];
-
-                    // For demo purposes, if no notes from API, create some mock data
-                    if (notes.length === 0) {
-                        console.log("No notes from API, using demo data");
-                        notes = [
-                            {
-                                id: "1",
-                                title: "Welcome to LockNote",
-                                content: "This is your first encrypted note!",
-                                tags: ["welcome", "demo"],
-                                categoryId: null,
-                                isPinned: true,
-                                createdAt: new Date().toISOString(),
-                                updatedAt: new Date().toISOString(),
-                            },
-                        ];
-                    }
+                    // Handle both response formats
+                    const notes = response.data || response || [];
 
                     set({
-                        notes: notes,
+                        notes: Array.isArray(notes) ? notes : [],
                         isLoading: false,
+                        error: null,
                         lastFetched: Date.now(),
                     });
                 } catch (error) {
                     console.error("Error fetching notes:", error);
-
-                    // If API fails, use demo data for development
-                    console.log("API failed, using demo data");
-                    const demoNotes = [
-                        {
-                            id: "1",
-                            title: "Welcome to LockNote",
-                            content:
-                                "This is your first encrypted note! Your notes are securely encrypted.",
-                            tags: ["welcome", "encryption"],
-                            categoryId: null,
-                            isPinned: true,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        },
-                        {
-                            id: "2",
-                            title: "How to use LockNote",
-                            content:
-                                '1. Create notes with the "New Note" button\n2. Organize with categories\n3. Your data is encrypted end-to-end',
-                            tags: ["tutorial", "guide"],
-                            categoryId: null,
-                            isPinned: false,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        },
-                    ];
-
                     set({
-                        notes: demoNotes,
                         isLoading: false,
-                        lastFetched: Date.now(),
+                        error: error.message,
+                        notes: [], // Clear notes on error
                     });
                 }
             },
@@ -104,7 +59,7 @@ export const useNotesStore = create(
                 set({ isLoading: true, error: null });
                 try {
                     const response = await notesService.getNoteById(id);
-                    let note = response.data;
+                    const note = response.data || response;
 
                     set({
                         currentNote: note,
@@ -127,7 +82,7 @@ export const useNotesStore = create(
                 set({ isLoading: true, error: null });
                 try {
                     const response = await notesService.createNote(noteData);
-                    const newNote = response.data;
+                    const newNote = response.data || response;
 
                     set((state) => ({
                         notes: [newNote, ...state.notes],
@@ -137,22 +92,11 @@ export const useNotesStore = create(
                     return newNote;
                 } catch (error) {
                     console.error("Error creating note:", error);
-
-                    // If API fails, create note locally for demo
-                    const localNote = {
-                        id: Date.now().toString(),
-                        ...noteData,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    };
-
-                    set((state) => ({
-                        notes: [localNote, ...state.notes],
+                    set({
                         isLoading: false,
-                        lastFetched: Date.now(),
-                    }));
-
-                    return localNote;
+                        error: error.message,
+                    });
+                    throw error;
                 }
             },
 
@@ -164,7 +108,7 @@ export const useNotesStore = create(
                         id,
                         noteData
                     );
-                    const updatedNote = response.data;
+                    const updatedNote = response.data || response;
 
                     set((state) => ({
                         notes: state.notes.map((note) =>
@@ -258,7 +202,7 @@ export const useNotesStore = create(
                     );
                 }
 
-                // Sort: pinned notes first, then by date
+                // Sort: pinned notes first, then by date (newest first)
                 return filteredNotes.sort((a, b) => {
                     if (a.isPinned && !b.isPinned) return -1;
                     if (!a.isPinned && b.isPinned) return 1;

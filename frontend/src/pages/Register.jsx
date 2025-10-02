@@ -67,15 +67,14 @@ const Register = () => {
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-foreground mb-2">LockNote</h1>
-                    <p className="text-muted-foreground">End-to-End Encrypted Notes</p>
+                    <h1 className="text-4xl font-bold text-foreground mb-2">JustNotes</h1>
                 </div>
 
                 <Card>
                     <CardHeader className="space-y-1">
                         <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
                         <CardDescription className="text-center">
-                            Sign up for your LockNote account
+                            Sign up for your JustNotes account
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

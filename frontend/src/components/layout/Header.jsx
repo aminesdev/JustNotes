@@ -51,7 +51,7 @@ const Header = () => {
                         <MenuIcon />
                     </Button>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-semibold hidden sm:block">LockNote</h1>
+                        <h1 className="text-xl font-semibold hidden sm:block">JustNotes</h1>
                     </div>
                 </div>
 
@@ -88,14 +88,14 @@ const Header = () => {
                         variant="ghost"
                         size="icon"
                         onClick={toggleTheme}
-                        className="flex-shrink-0"
+                        className="flex-shrink-0 mr-2" 
                     >
                         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
                     </Button>
 
                     {user && (
                         <div className="flex items-center gap-3">
-                            <span className="text-sm text-muted-foreground hidden sm:block">
+                            <span className="text-sm text-muted-foreground hidden sm:block mr-2"> {/* Added margin */}
                                 {user.email}
                             </span>
                             <Button variant="outline" size="sm" onClick={logout} className="flex-shrink-0">

@@ -6,8 +6,6 @@ import {Label} from '@/components/ui/label';
 import {Switch} from '@/components/ui/switch';
 import {useNotesStore} from '../../stores/notesStore';
 import {useCategoriesStore} from '../../stores/categoriesStore';
-import {useAuthStore} from '../../stores/authStore';
-import {EncryptionService} from '../../utils/encryption';
 
 const NoteForm = ({note, onSave, onCancel}) => {
     const [formData, setFormData] = useState({
@@ -22,7 +20,6 @@ const NoteForm = ({note, onSave, onCancel}) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {categories, fetchCategories} = useCategoriesStore();
-    const {user} = useAuthStore();
 
     useEffect(() => {
         fetchCategories().catch(err => console.error('Failed to fetch categories:', err));
@@ -58,20 +55,8 @@ const NoteForm = ({note, onSave, onCancel}) => {
 
         setIsSubmitting(true);
         try {
-            if (!user?.publicKey) {
-                throw new Error('Encryption not set up. Please setup encryption first.');
-            }
-
-            const encryptedData = EncryptionService.prepareNoteData({
-                title: formData.title,
-                content: formData.content,
-                tags: formData.tags || [],
-                categoryId: formData.categoryId || null,
-                isPinned: formData.isPinned || false
-            }, user.publicKey);
-
-            console.log('Sending note data:', encryptedData);
-            await onSave(encryptedData);
+            console.log('Sending note data:', formData);
+            await onSave(formData);
         } catch (error) {
             console.error('Save error:', error);
             setErrors({submit: error.message || 'Failed to save note'});

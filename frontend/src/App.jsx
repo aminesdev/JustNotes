@@ -11,6 +11,7 @@ import Register from './pages/Register';
 import Notes from './pages/Notes';
 import Categories from './pages/Categories';
 import Profile from './pages/Profile';
+import NoteEditorPage from './pages/NoteEditor';
 
 const LoadingSpinner = () => (
     <div className="min-h-screen flex items-center justify-center">
@@ -25,7 +26,11 @@ const ProtectedRoute = ({children}) => {
         return <LoadingSpinner />;
     }
 
-    return accessToken && user ? children : <Navigate to="/login" replace />;
+    if (!accessToken || !user) {
+        return <Navigate to="/login" replace />;
+    }
+
+    return children;
 };
 
 const PublicRoute = ({children}) => {
@@ -35,13 +40,18 @@ const PublicRoute = ({children}) => {
         return <LoadingSpinner />;
     }
 
-    return !(accessToken && user) ? children : <Navigate to="/notes" replace />;
+    if (accessToken && user) {
+        return <Navigate to="/notes" replace />;
+    }
+
+    return children;
 };
 
 function App() {
     const {initialize, isInitialized} = useAuthStore();
 
     useEffect(() => {
+        console.log("App initializing...");
         initialize();
     }, [initialize]);
 
@@ -93,6 +103,8 @@ function App() {
                         <Layout>
                             <Routes>
                                 <Route path="/notes" element={<Notes />} />
+                                <Route path="/notes/new" element={<NoteEditorPage />} />
+                                <Route path="/notes/:id" element={<NoteEditorPage />} />
                                 <Route path="/categories" element={<Categories />} />
                                 <Route path="/profile" element={<Profile />} />
                                 <Route path="/" element={<Navigate to="/notes" replace />} />

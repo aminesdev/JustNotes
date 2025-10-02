@@ -4,46 +4,95 @@ export const categoriesService = {
     getCategories: async () => {
         try {
             const response = await api.get("/categories");
-            return response.data;
+            const data = response.data?.data || response.data || [];
+            return Array.isArray(data) ? data : [];
         } catch (error) {
-            if (error.response?.status === 401) {
-                throw new Error("Authentication required. Please login again.");
-            }
-            if (error.response?.status === 404) {
-                return [];
-            }
+            console.error("Categories service - getCategories error:", {
+                message: error.message,
+                status: error.response?.status,
+                data: error.response?.data,
+                config: error.config,
+            });
             throw error;
         }
     },
 
     getCategoryById: async (id) => {
-        const response = await api.get(`/categories/${id}`);
-        return response.data;
+        try {
+            const response = await api.get(`/categories/${id}`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - getCategoryById error:", error);
+            throw error;
+        }
     },
 
     createCategory: async (categoryData) => {
-        const payload = {
-            name: categoryData.name.trim(),
-            description: categoryData.description?.trim() || null,
-            color: categoryData.color || "#6B73FF",
-        };
+        try {
+            // Match the exact API payload structure from your docs
+            const payload = {
+                name: categoryData.name?.trim() || "",
+                description: categoryData.description?.trim() || null,
+                color: categoryData.color || "#6B73FF",
+            };
 
-        const response = await api.post("/categories", payload);
-        return response.data;
+            console.log("Creating category with payload:", payload);
+
+            // Validate required fields
+            if (!payload.name) {
+                throw new Error("Category name is required");
+            }
+
+            const response = await api.post("/categories", payload);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - createCategory error:", error);
+            throw error;
+        }
     },
 
     updateCategory: async (id, categoryData) => {
-        const response = await api.put(`/categories/${id}`, categoryData);
-        return response.data;
+        try {
+            const payload = {
+                name: categoryData.name?.trim() || "",
+                description: categoryData.description?.trim() || null,
+                color: categoryData.color || "#6B73FF",
+            };
+
+            console.log("Updating category with payload:", payload);
+
+            if (!payload.name) {
+                throw new Error("Category name is required");
+            }
+
+            const response = await api.put(`/categories/${id}`, payload);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - updateCategory error:", error);
+            throw error;
+        }
     },
 
     deleteCategory: async (id) => {
-        const response = await api.delete(`/categories/${id}`);
-        return response.data;
+        try {
+            const response = await api.delete(`/categories/${id}`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error("Categories service - deleteCategory error:", error);
+            throw error;
+        }
     },
 
     getCategoryNotes: async (id) => {
-        const response = await api.get(`/categories/${id}/notes`);
-        return response.data;
+        try {
+            const response = await api.get(`/categories/${id}/notes`);
+            return response.data?.data || response.data;
+        } catch (error) {
+            console.error(
+                "Categories service - getCategoryNotes error:",
+                error
+            );
+            throw error;
+        }
     },
 };

@@ -5,20 +5,22 @@ import { specs, swaggerUi } from "./config/swagger.js";
 import cors from "cors";
 
 const app = express();
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
 app.use(
     cors({
-        origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+        origin: FRONTEND_URL,
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
+        exposedHeaders: ["Authorization"],
     })
 );
 
 app.use(express.json({ limit: "10mb" }));
-// Add this right after app.use(express.json())
+
 app.use((req, res, next) => {
-    console.log(`Incoming: ${req.method} ${req.url}`);
+    console.log(`${req.method} ${req.url}`);
     next();
 });
 

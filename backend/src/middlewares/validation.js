@@ -1,10 +1,4 @@
 import { body, param, validationResult } from "express-validator";
-import {
-    validateEncryptedData,
-    validateEncryptedTags,
-    validateEncryptedKey,
-    validateEncryptedCategory,
-} from "./encryptionValidation.js";
 
 export const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
@@ -18,6 +12,51 @@ export const handleValidationErrors = (req, res, next) => {
     next();
 };
 
+// Note validation helpers
+export const validateNoteData = (fieldName, maxLength = 100000) => [
+    body(fieldName)
+        .isLength({ min: 1, max: maxLength })
+        .withMessage(`${fieldName} is required`)
+        .isString()
+        .withMessage(`${fieldName} must be a string`),
+];
+
+export const validateTags = [
+    body("tags")
+        .optional()
+        .isArray()
+        .withMessage("Tags must be an array")
+        .custom((tags) => {
+            if (tags && tags.length > 0) {
+                for (const tag of tags) {
+                    if (typeof tag !== "string") {
+                        throw new Error("Each tag must be a string");
+                    }
+                }
+            }
+            return true;
+        }),
+];
+
+// Category validation helpers
+export const validateCategoryData = [
+    body("name")
+        .isLength({ min: 1, max: 255 })
+        .withMessage(
+            "Category name is required and must be less than 255 characters"
+        )
+        .isString()
+        .withMessage("Category name must be a string"),
+
+    body("description")
+        .optional({ nullable: true, checkFalsy: true }) // Allow null, undefined, or empty string
+        .isString()
+        .withMessage("Description must be a string")
+        .isLength({ max: 1000 })
+        .withMessage("Description must be less than 1000 characters"),
+];
+
+// Auth validations
 export const validateRegister = [
     body("email")
         .isEmail()
@@ -55,15 +94,21 @@ export const validateRefreshToken = [
     handleValidationErrors,
 ];
 
+// Note validations
 export const validateCreateNote = [
-    ...validateEncryptedData("title", 5000),
-    ...validateEncryptedData("content", 100000),
-    ...validateEncryptedTags,
-    ...validateEncryptedKey,
+    ...validateNoteData("title", 255),
+    ...validateNoteData("content", 100000),
+    ...validateTags,
 
     body("categoryId")
-        .optional()
-        .isString()
+        .optional({ nullable: true, checkFalsy: true })
+        .custom((value) => {
+            // Allow null, undefined, empty string, or valid string
+            if (value === null || value === undefined || value === "") {
+                return true;
+            }
+            return typeof value === "string";
+        })
         .withMessage("Category ID must be a string"),
 
     body("isPinned")
@@ -79,36 +124,29 @@ export const validateUpdateNote = [
 
     body("title")
         .optional()
-        .custom((value) => {
-            if (value) {
-                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-                if (!base64Regex.test(value) || value.length % 4 !== 0) {
-                    throw new Error("Title must be valid base64 encoded data");
-                }
-            }
-            return true;
-        }),
+        .isString()
+        .isLength({ max: 255 })
+        .withMessage("Title must be a string and less than 255 characters"),
 
     body("content")
         .optional()
-        .custom((value) => {
-            if (value) {
-                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-                if (!base64Regex.test(value) || value.length % 4 !== 0) {
-                    throw new Error(
-                        "Content must be valid base64 encoded data"
-                    );
-                }
-            }
-            return true;
-        }),
+        .isString()
+        .isLength({ max: 100000 })
+        .withMessage(
+            "Content must be a string and less than 100000 characters"
+        ),
 
-    ...validateEncryptedTags,
-    ...validateEncryptedKey,
+    ...validateTags,
 
     body("categoryId")
-        .optional()
-        .isString()
+        .optional({ nullable: true, checkFalsy: true })
+        .custom((value) => {
+            // Allow null, undefined, empty string, or valid string
+            if (value === null || value === undefined || value === "") {
+                return true;
+            }
+            return typeof value === "string";
+        })
         .withMessage("Category ID must be a string"),
 
     body("isPinned")
@@ -125,6 +163,7 @@ export const validateNoteId = [
     handleValidationErrors,
 ];
 
+// Email validations
 export const validateEmail = [
     body("email").isEmail().withMessage("Valid email is required"),
     handleValidationErrors,
@@ -156,22 +195,9 @@ export const validateVerificationCode = [
     handleValidationErrors,
 ];
 
-export const validateEncryptionSetup = [
-    body("publicKey")
-        .isString()
-        .isLength({ min: 1, max: 10000 })
-        .withMessage("Public key is required"),
-
-    body("encryptedPrivateKey")
-        .isString()
-        .isLength({ min: 1, max: 10000 })
-        .withMessage("Encrypted private key is required"),
-
-    handleValidationErrors,
-];
-
+// Category validations
 export const validateCategory = [
-    ...validateEncryptedCategory,
+    ...validateCategoryData,
 
     body("color")
         .optional()
@@ -186,31 +212,18 @@ export const validateCategoryUpdate = [
 
     body("name")
         .optional()
-        .custom((value) => {
-            if (value) {
-                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-                if (!base64Regex.test(value) || value.length % 4 !== 0) {
-                    throw new Error(
-                        "Category name must be valid base64 encoded data"
-                    );
-                }
-            }
-            return true;
-        }),
+        .isString()
+        .isLength({ max: 255 })
+        .withMessage(
+            "Category name must be a string and less than 255 characters"
+        ),
 
     body("description")
-        .optional()
-        .custom((value) => {
-            if (value) {
-                const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-                if (!base64Regex.test(value) || value.length % 4 !== 0) {
-                    throw new Error(
-                        "Category description must be valid base64 encoded data"
-                    );
-                }
-            }
-            return true;
-        }),
+        .optional({ nullable: true, checkFalsy: true })
+        .isString()
+        .withMessage("Description must be a string")
+        .isLength({ max: 1000 })
+        .withMessage("Description must be less than 1000 characters"),
 
     body("color")
         .optional()
