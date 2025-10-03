@@ -14,7 +14,10 @@ async function startServer() {
             );
         }
         await connectDb();
-        app.listen(PORT);
+        const PORT = process.env.PORT || 3001;
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
     } catch (error) {
         console.error("Failed to start server:", error);
         process.exit(1);
