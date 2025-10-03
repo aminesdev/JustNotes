@@ -1,19 +1,34 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { checkEmailRateLimit } from "../middlewares/emailRateLimit.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Create transporter using minimal environment variables
+const transporter = nodemailer.createTransporter({
+    service: "gmail", // or any other email service
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+    },
+});
 
 export const verifyEmailConnection = async () => {
     try {
-        console.log("Resend email service configured");
+        console.log("Nodemailer email service configured");
         console.log("=== Email Configuration Check ===");
         console.log(
-            "RESEND_API_KEY:",
-            process.env.RESEND_API_KEY ? "Configured" : "Missing"
+            "EMAIL_USER:",
+            process.env.EMAIL_USER ? "Configured" : "Missing"
         );
+        console.log(
+            "EMAIL_PASSWORD:",
+            process.env.EMAIL_PASSWORD ? "Configured" : "Missing"
+        );
+
+        // Verify connection configuration
+        await transporter.verify();
+        console.log("Email connection verified successfully");
         return true;
     } catch (error) {
-        console.error("Resend configuration failed:", error);
+        console.error("Email configuration failed:", error);
         return false;
     }
 };
@@ -22,8 +37,8 @@ export const sendVerificationEmail = async (email, code) => {
     try {
         await checkEmailRateLimit(email);
 
-        const { data, error } = await resend.emails.send({
-            from: "JustNotes <onboarding@resend.dev>",
+        const mailOptions = {
+            from: process.env.FROM_EMAIL || "JustNotes <noreply@justnotes.com>",
             to: email,
             subject: "Verify Your Email - JustNotes",
             html: `
@@ -142,15 +157,11 @@ If you didn't create a JustNotes account, please ignore this email.
 --
 JustNotes - End-to-End Encrypted Notes
             `,
-        });
+        };
 
-        if (error) {
-            console.error("Resend API error:", error);
-            throw error;
-        }
-
-        console.log("Verification email sent:", data.id);
-        return data;
+        const result = await transporter.sendMail(mailOptions);
+        console.log("Verification email sent:", result.messageId);
+        return result;
     } catch (error) {
         if (error.message && error.message.includes("rate limit")) {
             throw error;
@@ -162,8 +173,8 @@ JustNotes - End-to-End Encrypted Notes
 
 export const sendPasswordResetEmail = async (email, code) => {
     try {
-        const { data, error } = await resend.emails.send({
-            from: "JustNotes <onboarding@resend.dev>",
+        const mailOptions = {
+            from: process.env.FROM_EMAIL || "JustNotes <noreply@justnotes.com>",
             to: email,
             subject: "Password Reset Request - JustNotes",
             html: `
@@ -285,15 +296,11 @@ Remember: JustNotes cannot recover your encrypted data if you lose your encrypti
 --
 JustNotes - End-to-End Encrypted Notes
             `,
-        });
+        };
 
-        if (error) {
-            console.error("Resend API error:", error);
-            throw error;
-        }
-
-        console.log("Password reset email sent:", data.id);
-        return data;
+        const result = await transporter.sendMail(mailOptions);
+        console.log("Password reset email sent:", result.messageId);
+        return result;
     } catch (error) {
         console.error("Failed to send password reset email:", error);
         throw new Error("Failed to send password reset email");
