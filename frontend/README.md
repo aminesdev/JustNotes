@@ -4,7 +4,7 @@ A responsive note-taking app built with React and Tailwind CSS.
 
 ## Live Demo
 
-[View Live Demo](https://your-live-demo-link.com)
+[View Live Demo](https://justnotes-livid.vercel.app)
 
 ## Features
 

@@ -18,6 +18,7 @@
     "license": "ISC",
     "dependencies": {
         "@prisma/client": "^6.16.2",
+        "@sendgrid/mail": "^8.1.6",
         "@upstash/ratelimit": "^2.0.6",
         "@upstash/redis": "^1.35.4",
         "bcrypt": "^6.0.0",
