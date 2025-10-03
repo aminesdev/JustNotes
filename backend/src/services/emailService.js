@@ -1,9 +1,8 @@
 import nodemailer from "nodemailer";
 import { checkEmailRateLimit } from "../middlewares/emailRateLimit.js";
 
-// Create transporter using minimal environment variables
 const transporter = nodemailer.createTransport({
-    service: "gmail", // or any other email service
+    service: "gmail",
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
