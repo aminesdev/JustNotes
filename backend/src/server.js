@@ -5,6 +5,10 @@ import { verifyEmailConnection } from "./services/emailService.js";
 
 dotenv.config();
 
+console.log('=== Email Configuration Check ===');
+console.log('GMAIL_USER:', process.env.GMAIL_USER ? 'Set' : 'Missing');
+console.log('GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'Set' : 'Missing');
+
 // Safe route debugging function
 function debugRoutes() {
     console.log("\n--- Testing Routes ---");
